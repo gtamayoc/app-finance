@@ -3,6 +3,7 @@ package com.gtc.app_finance.di
 import com.gtc.app_finance.BuildConfig
 import com.gtc.app_finance.data.dao.CreditDao
 import com.gtc.app_finance.data.dao.PaymentDao
+import com.gtc.app_finance.data.dao.SyncQueueDao
 import com.gtc.app_finance.data.dao.TransactionDao
 import com.gtc.app_finance.data.database.AppDatabase
 import com.gtc.app_finance.data.database.DatabaseConfig
@@ -47,6 +48,7 @@ val databaseModule = module {
     single { TransactionDao(dbHelper = get()) }
     single { CreditDao(dbHelper = get()) }
     single { PaymentDao(dbHelper = get()) }
+    single { SyncQueueDao(dbHelper = get()) }
 }
 
 val networkModule = module {
@@ -72,6 +74,7 @@ val repositoryModule = module {
             transactionDao = get(),
             creditDao = get(),
             paymentDao = get(),
+            syncQueueDao = get(),
             tursoSyncClient = get(),
             configProvider = get()
         )

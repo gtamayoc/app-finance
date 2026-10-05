@@ -51,6 +51,54 @@ class PaymentDao(private val dbHelper: TursoDatabaseHelper) {
         return list
     }
 
+    fun getAll(): List<PaymentEntity> {
+        val list = mutableListOf<PaymentEntity>()
+        val db = dbHelper.readableDatabase
+        val cursor: Cursor = db.query("payments", null, null, null, null, null, "date DESC")
+        cursor.use { c ->
+            val idIdx = c.getColumnIndexOrThrow("id")
+            val creditIdIdx = c.getColumnIndexOrThrow("credit_id")
+            val amountIdx = c.getColumnIndexOrThrow("amount")
+            val dateIdx = c.getColumnIndexOrThrow("date")
+
+            while (c.moveToNext()) {
+                list.add(
+                    PaymentEntity(
+                        id = c.getString(idIdx),
+                        creditId = c.getString(creditIdIdx),
+                        amount = c.getDouble(amountIdx),
+                        date = c.getString(dateIdx)
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    fun deleteById(id: String): Boolean {
+        val db = dbHelper.writableDatabase
+        val rows = db.delete("payments", "id = ?", arrayOf(id))
+        return rows > 0
+    }
+
+    fun deleteAll(): Int {
+        val db = dbHelper.writableDatabase
+        return db.delete("payments", null, null)
+    }
+
+    fun getAllIds(): Set<String> {
+        val ids = mutableSetOf<String>()
+        val db = dbHelper.readableDatabase
+        val cursor = db.query("payments", arrayOf("id"), null, null, null, null, null)
+        cursor.use { c ->
+            val idx = c.getColumnIndexOrThrow("id")
+            while (c.moveToNext()) {
+                ids.add(c.getString(idx))
+            }
+        }
+        return ids
+    }
+
     fun getCount(): Int {
         val db = dbHelper.readableDatabase
         val cursor = db.rawQuery("SELECT COUNT(*) FROM payments", null)

@@ -10,6 +10,17 @@
     <!-- Dashboard Screen -->
     <string name="dashboard_title">Mi Billetera</string>
     <string name="dashboard_subtitle">Resumen Financiero Mensual</string>
+    <string name="dashboard_user_greeting">Hola de nuevo 👋</string>
+    <string name="dashboard_user_title">Billetera Personal</string>
+    <string name="dashboard_sync_action_desc">Sincronizar con Turso Cloud</string>
+    <string name="dashboard_sync_synced">Sincronizado</string>
+    <string name="dashboard_sync_offline">Sin sincronizar (Offline)</string>
+    <string name="dashboard_sync_progress">Sincronizando...</string>
+    <string name="dashboard_clear_data_title">¿Empezar desde cero?</string>
+    <string name="dashboard_clear_data_desc">Se eliminarán todos los movimientos, créditos y pagos locales y en la nube para comenzar completamente en limpio.</string>
+    <string name="dashboard_clear_data_confirm">Limpiar todo</string>
+    <string name="dashboard_clear_data_cancel">Cancelar</string>
+    <string name="dashboard_clear_data_btn">Limpiar datos y empezar de cero</string>
     <string name="dashboard_btn_validate_db">Validar Base de Datos</string>
     <string name="dashboard_btn_add_movement">Agregar Movimiento</string>
     <string name="dashboard_db_status_connected">Turso Cloud Conectado (%1$dms)</string>

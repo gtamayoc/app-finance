@@ -2,8 +2,12 @@ package com.gtc.app_finance.data.database
 
 import android.util.Log
 import com.google.gson.JsonArray
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.gtc.app_finance.data.entity.CreditEntity
+import com.gtc.app_finance.data.entity.PaymentEntity
+import com.gtc.app_finance.data.entity.TransactionEntity
 import com.gtc.app_finance.domain.model.ConnectionStatus
 import com.gtc.app_finance.domain.model.RemoteDbDiagnostic
 import kotlinx.coroutines.Dispatchers
@@ -266,4 +270,186 @@ class TursoSyncClient(
             false
         }
     }
+
+    suspend fun pullRemoteData(): RemoteSyncData? = withContext(Dispatchers.IO) {
+        if (configProvider.tursoUrl.isBlank() || configProvider.tursoUrl.contains("YOUR_TURSO_DB")) {
+            Log.w("TursoSyncClient", "Turso DB URL not configured. Skipping remote pull.")
+            return@withContext null
+        }
+
+        try {
+            val endpoint = getEndpoint()
+            val reqTx = JsonObject().apply {
+                addProperty("type", "execute")
+                add("stmt", JsonObject().apply {
+                    addProperty("sql", "SELECT id, title, amount, type, category, date FROM transactions;")
+                })
+            }
+            val reqCr = JsonObject().apply {
+                addProperty("type", "execute")
+                add("stmt", JsonObject().apply {
+                    addProperty("sql", "SELECT id, title, total_amount, remaining_amount, due_date FROM credits;")
+                })
+            }
+            val reqPy = JsonObject().apply {
+                addProperty("type", "execute")
+                add("stmt", JsonObject().apply {
+                    addProperty("sql", "SELECT id, credit_id, amount, date FROM payments;")
+                })
+            }
+            val closeObj = JsonObject().apply { addProperty("type", "close") }
+
+            val payload = JsonObject().apply {
+                add("requests", JsonArray().apply {
+                    add(reqTx)
+                    add(reqCr)
+                    add(reqPy)
+                    add(closeObj)
+                })
+            }
+
+            fun doCall(token: String): okhttp3.Response {
+                val request = Request.Builder()
+                    .url(endpoint)
+                    .addHeader("Authorization", "Bearer $token")
+                    .post(payload.toString().toRequestBody(mediaType))
+                    .build()
+                return client.newCall(request).execute()
+            }
+
+            var resp = doCall(configProvider.activeToken)
+            if (resp.code == 401 && !configProvider.isUsingBackupToken() && configProvider.config.backupAuthToken.isNotBlank()) {
+                resp.close()
+                Log.w("TursoSyncClient", "Retrying pullRemoteData with backup token...")
+                resp = doCall(configProvider.config.backupAuthToken)
+                if (resp.isSuccessful) {
+                    configProvider.switchToBackup()
+                }
+            }
+
+            resp.use { response ->
+                if (!response.isSuccessful) {
+                    Log.e("TursoSyncClient", "Turso HTTP Error ${response.code} during pullRemoteData: ${response.body?.string()}")
+                    return@withContext null
+                }
+
+                val body = response.body?.string() ?: return@withContext null
+                val root = JsonParser.parseString(body).asJsonObject
+                val results = root.getAsJsonArray("results") ?: return@withContext null
+
+                fun parseTransactions(resultObj: JsonObject?): List<TransactionEntity> {
+                    val list = mutableListOf<TransactionEntity>()
+                    val rows = resultObj?.getAsJsonArray("rows") ?: return list
+                    for (row in rows) {
+                        val arr = row.asJsonArray
+                        if (arr.size() >= 6) {
+                            list.add(
+                                TransactionEntity(
+                                    id = extractString(arr[0]),
+                                    title = extractString(arr[1]),
+                                    amount = extractDouble(arr[2]),
+                                    type = extractString(arr[3]),
+                                    category = extractString(arr[4]),
+                                    date = extractString(arr[5])
+                                )
+                            )
+                        }
+                    }
+                    return list
+                }
+
+                fun parseCredits(resultObj: JsonObject?): List<CreditEntity> {
+                    val list = mutableListOf<CreditEntity>()
+                    val rows = resultObj?.getAsJsonArray("rows") ?: return list
+                    for (row in rows) {
+                        val arr = row.asJsonArray
+                        if (arr.size() >= 5) {
+                            list.add(
+                                CreditEntity(
+                                    id = extractString(arr[0]),
+                                    title = extractString(arr[1]),
+                                    totalAmount = extractDouble(arr[2]),
+                                    remainingAmount = extractDouble(arr[3]),
+                                    dueDate = extractString(arr[4])
+                                )
+                            )
+                        }
+                    }
+                    return list
+                }
+
+                fun parsePayments(resultObj: JsonObject?): List<PaymentEntity> {
+                    val list = mutableListOf<PaymentEntity>()
+                    val rows = resultObj?.getAsJsonArray("rows") ?: return list
+                    for (row in rows) {
+                        val arr = row.asJsonArray
+                        if (arr.size() >= 4) {
+                            list.add(
+                                PaymentEntity(
+                                    id = extractString(arr[0]),
+                                    creditId = extractString(arr[1]),
+                                    amount = extractDouble(arr[2]),
+                                    date = extractString(arr[3])
+                                )
+                            )
+                        }
+                    }
+                    return list
+                }
+
+                val txResult = if (results.size() > 0) results.get(0).asJsonObject.getAsJsonObject("response")?.getAsJsonObject("result") else null
+                val crResult = if (results.size() > 1) results.get(1).asJsonObject.getAsJsonObject("response")?.getAsJsonObject("result") else null
+                val pyResult = if (results.size() > 2) results.get(2).asJsonObject.getAsJsonObject("response")?.getAsJsonObject("result") else null
+
+                RemoteSyncData(
+                    transactions = parseTransactions(txResult),
+                    credits = parseCredits(crResult),
+                    payments = parsePayments(pyResult)
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("TursoSyncClient", "Failed to pull data from Turso cloud", e)
+            null
+        }
+    }
+
+    private fun extractString(element: JsonElement): String {
+        if (element.isJsonNull) return ""
+        if (element.isJsonObject) {
+            val obj = element.asJsonObject
+            val type = obj.get("type")?.asString
+            if (type == "null") return ""
+            return obj.get("value")?.asString ?: obj.get("text")?.asString ?: ""
+        }
+        return if (element.isJsonPrimitive) element.asString else ""
+    }
+
+    private fun extractDouble(element: JsonElement): Double {
+        if (element.isJsonNull) return 0.0
+        if (element.isJsonObject) {
+            val obj = element.asJsonObject
+            val type = obj.get("type")?.asString
+            if (type == "null") return 0.0
+            return try {
+                obj.get("value")?.asDouble ?: obj.get("value")?.asString?.toDoubleOrNull() ?: 0.0
+            } catch (e: Exception) {
+                0.0
+            }
+        }
+        return try {
+            element.asDouble
+        } catch (e: Exception) {
+            try {
+                element.asString.toDoubleOrNull() ?: 0.0
+            } catch (e2: Exception) {
+                0.0
+            }
+        }
+    }
 }
+
+data class RemoteSyncData(
+    val transactions: List<TransactionEntity> = emptyList(),
+    val credits: List<CreditEntity> = emptyList(),
+    val payments: List<PaymentEntity> = emptyList()
+)

@@ -1,12 +1,15 @@
 package com.gtc.app_finance.data.repository
 
+import android.util.Log
 import com.gtc.app_finance.data.dao.CreditDao
 import com.gtc.app_finance.data.dao.PaymentDao
+import com.gtc.app_finance.data.dao.SyncQueueDao
 import com.gtc.app_finance.data.dao.TransactionDao
 import com.gtc.app_finance.data.database.TursoConfigProvider
 import com.gtc.app_finance.data.database.TursoSyncClient
 import com.gtc.app_finance.data.entity.CreditEntity
 import com.gtc.app_finance.data.entity.PaymentEntity
+import com.gtc.app_finance.data.entity.SyncQueueEntity
 import com.gtc.app_finance.data.entity.TransactionEntity
 import com.gtc.app_finance.domain.model.ConnectionStatus
 import com.gtc.app_finance.domain.model.Credit
@@ -30,6 +33,7 @@ class FinanceRepository(
     private val transactionDao: TransactionDao,
     private val creditDao: CreditDao,
     private val paymentDao: PaymentDao,
+    private val syncQueueDao: SyncQueueDao,
     private val tursoSyncClient: TursoSyncClient,
     private val configProvider: TursoConfigProvider
 ) {
@@ -47,15 +51,14 @@ class FinanceRepository(
     val dbStatus: StateFlow<FullDatabaseStatus> = _dbStatus.asStateFlow()
 
     suspend fun refreshData(): Unit = withContext(Dispatchers.IO) {
+        purgeLegacySampleData()
+        refreshLocalData()
+        syncData()
+    }
+
+    suspend fun refreshLocalData(): Unit = withContext(Dispatchers.IO) {
         val txEntities = transactionDao.getAll()
         val crEntities = creditDao.getAll()
-
-        // Seed initial mock data if database is completely fresh
-        if (txEntities.isEmpty() && crEntities.isEmpty()) {
-            seedSampleData()
-            refreshData()
-            return@withContext
-        }
 
         val txList = txEntities.map { it.toDomain() }
         val crList = crEntities.map { it.toDomain() }
@@ -64,9 +67,93 @@ class FinanceRepository(
         _credits.value = crList
 
         calculateSummary(txList, crList)
+        updateLocalHealthStatus()
+    }
 
-        // Run health check and auto-sync schema
-        checkDatabaseHealth()
+    suspend fun syncData(): Boolean = withContext(Dispatchers.IO) {
+        _dbStatus.value = _dbStatus.value.copy(
+            remote = _dbStatus.value.remote.copy(status = ConnectionStatus.CONNECTING)
+        )
+
+        // 1. Verify connection
+        val remoteDiag = tursoSyncClient.testConnection()
+        if (remoteDiag.status != ConnectionStatus.CONNECTED) {
+            _dbStatus.value = _dbStatus.value.copy(remote = remoteDiag)
+            return@withContext false
+        }
+
+        // 2. Push any pending changes from the local offline queue
+        val pendingQueue = syncQueueDao.getAll()
+        for (item in pendingQueue) {
+            val success = tursoSyncClient.executeQuery(item.sqlCommand)
+            if (success) {
+                syncQueueDao.deleteById(item.id)
+            } else {
+                Log.w("FinanceRepository", "Failed to sync pending item ${item.id}: ${item.sqlCommand}")
+            }
+        }
+
+        // 3. Pull latest remote state from Turso Cloud
+        val remoteData = tursoSyncClient.pullRemoteData()
+        if (remoteData != null) {
+            val pendingTxInsertIds = syncQueueDao.getPendingEntityIds("TRANSACTION")
+            val pendingCrInsertIds = syncQueueDao.getPendingEntityIds("CREDIT")
+            val pendingPyInsertIds = syncQueueDao.getPendingEntityIds("PAYMENT")
+
+            // Reconcile Transactions
+            for (tx in remoteData.transactions) {
+                transactionDao.insert(tx)
+            }
+            val remoteTxIds = remoteData.transactions.map { it.id }.toSet()
+            for (localTx in transactionDao.getAll()) {
+                if (localTx.id !in remoteTxIds && localTx.id !in pendingTxInsertIds) {
+                    transactionDao.deleteById(localTx.id)
+                }
+            }
+
+            // Reconcile Credits
+            for (cr in remoteData.credits) {
+                creditDao.insert(cr)
+            }
+            val remoteCrIds = remoteData.credits.map { it.id }.toSet()
+            for (localCr in creditDao.getAll()) {
+                if (localCr.id !in remoteCrIds && localCr.id !in pendingCrInsertIds) {
+                    creditDao.deleteById(localCr.id)
+                }
+            }
+
+            // Reconcile Payments
+            for (py in remoteData.payments) {
+                paymentDao.insert(py)
+            }
+            val remotePyIds = remoteData.payments.map { it.id }.toSet()
+            for (localPy in paymentDao.getAll()) {
+                if (localPy.id !in remotePyIds && localPy.id !in pendingPyInsertIds) {
+                    paymentDao.deleteById(localPy.id)
+                }
+            }
+        }
+
+        // 4. Reload local data into UI StateFlows
+        refreshLocalData()
+
+        // 5. Update complete DB health status
+        val localDiag = LocalDbDiagnostic(
+            databaseName = configProvider.dbName,
+            version = configProvider.dbVersion,
+            transactionCount = transactionDao.getCount(),
+            creditCount = creditDao.getCount(),
+            paymentCount = paymentDao.getCount(),
+            isHealthy = true
+        )
+        _dbStatus.value = FullDatabaseStatus(
+            local = localDiag,
+            remote = remoteDiag.copy(
+                status = ConnectionStatus.CONNECTED,
+                message = "Sincronizado con Turso Cloud"
+            )
+        )
+        return@withContext true
     }
 
     suspend fun checkDatabaseHealth(): FullDatabaseStatus = withContext(Dispatchers.IO) {
@@ -97,6 +184,22 @@ class FinanceRepository(
         return@withContext fullStatus
     }
 
+    private fun updateLocalHealthStatus() {
+        val txCount = transactionDao.getCount()
+        val crCount = creditDao.getCount()
+        val pyCount = paymentDao.getCount()
+
+        val localDiag = LocalDbDiagnostic(
+            databaseName = configProvider.dbName,
+            version = configProvider.dbVersion,
+            transactionCount = txCount,
+            creditCount = crCount,
+            paymentCount = pyCount,
+            isHealthy = true
+        )
+        _dbStatus.value = _dbStatus.value.copy(local = localDiag)
+    }
+
     suspend fun switchRemoteToken(): FullDatabaseStatus = withContext(Dispatchers.IO) {
         tursoSyncClient.switchToken()
         checkDatabaseHealth()
@@ -106,6 +209,21 @@ class FinanceRepository(
         val ok = tursoSyncClient.initializeRemoteDatabase()
         checkDatabaseHealth()
         return@withContext ok
+    }
+
+    suspend fun clearAllData(): Boolean = withContext(Dispatchers.IO) {
+        transactionDao.deleteAll()
+        creditDao.deleteAll()
+        paymentDao.deleteAll()
+        syncQueueDao.clear()
+
+        val ok1 = tursoSyncClient.executeQuery("DELETE FROM payments;")
+        val ok2 = tursoSyncClient.executeQuery("DELETE FROM credits;")
+        val ok3 = tursoSyncClient.executeQuery("DELETE FROM transactions;")
+
+        refreshLocalData()
+        checkDatabaseHealth()
+        return@withContext ok1 && ok2 && ok3
     }
 
     private fun calculateSummary(txList: List<Transaction>, crList: List<Credit>) {
@@ -158,18 +276,34 @@ class FinanceRepository(
         val typeString = if (type == TransactionType.INCOME) "income" else "expense"
         transactionDao.insert(TransactionEntity.fromDomain(transaction))
 
-        // Remote sync SQL to Turso Cloud
         val sql = "INSERT INTO transactions (id, title, amount, type, category, date) VALUES ('${transaction.id}', '${title.replace("'", "''")}', $amount, '$typeString', '${category.replace("'", "''")}', '$date');"
-        tursoSyncClient.executeQuery(sql)
+        syncQueueDao.insert(
+            SyncQueueEntity(
+                entityType = "TRANSACTION",
+                entityId = transaction.id,
+                operation = "INSERT",
+                sqlCommand = sql
+            )
+        )
 
-        refreshData()
+        refreshLocalData()
+        syncData()
     }
 
     suspend fun deleteTransaction(id: String) = withContext(Dispatchers.IO) {
         transactionDao.deleteById(id)
         val sql = "DELETE FROM transactions WHERE id = '$id';"
-        tursoSyncClient.executeQuery(sql)
-        refreshData()
+        syncQueueDao.insert(
+            SyncQueueEntity(
+                entityType = "TRANSACTION",
+                entityId = id,
+                operation = "DELETE",
+                sqlCommand = sql
+            )
+        )
+
+        refreshLocalData()
+        syncData()
     }
 
     suspend fun addCredit(
@@ -187,9 +321,17 @@ class FinanceRepository(
         creditDao.insert(CreditEntity.fromDomain(credit))
 
         val sql = "INSERT INTO credits (id, title, total_amount, remaining_amount, due_date) VALUES ('${credit.id}', '${title.replace("'", "''")}', $totalAmount, $totalAmount, '$dueDate');"
-        tursoSyncClient.executeQuery(sql)
+        syncQueueDao.insert(
+            SyncQueueEntity(
+                entityType = "CREDIT",
+                entityId = credit.id,
+                operation = "INSERT",
+                sqlCommand = sql
+            )
+        )
 
-        refreshData()
+        refreshLocalData()
+        syncData()
     }
 
     suspend fun recordPayment(
@@ -224,40 +366,52 @@ class FinanceRepository(
         )
         transactionDao.insert(TransactionEntity.fromDomain(expenseTx))
 
-        // Remote sync SQL to Turso Cloud
         val paySql = "INSERT INTO payments (id, credit_id, amount, date) VALUES ('${payment.id}', '$creditId', $amount, '$date');"
         val updateCreditSql = "UPDATE credits SET remaining_amount = $newRemaining WHERE id = '$creditId';"
-        tursoSyncClient.executeQuery(paySql)
-        tursoSyncClient.executeQuery(updateCreditSql)
+        val txSql = "INSERT INTO transactions (id, title, amount, type, category, date) VALUES ('${expenseTx.id}', '${expenseTx.title.replace("'", "''")}', $amount, 'expense', 'Pago Crédito', '$date');"
 
-        refreshData()
+        syncQueueDao.insert(SyncQueueEntity(entityType = "PAYMENT", entityId = payment.id, operation = "INSERT", sqlCommand = paySql))
+        syncQueueDao.insert(SyncQueueEntity(entityType = "CREDIT", entityId = creditId, operation = "UPDATE", sqlCommand = updateCreditSql))
+        syncQueueDao.insert(SyncQueueEntity(entityType = "TRANSACTION", entityId = expenseTx.id, operation = "INSERT", sqlCommand = txSql))
+
+        refreshLocalData()
+        syncData()
     }
 
     suspend fun deleteCredit(id: String) = withContext(Dispatchers.IO) {
         creditDao.deleteById(id)
         val sql = "DELETE FROM credits WHERE id = '$id';"
-        tursoSyncClient.executeQuery(sql)
-        refreshData()
+        syncQueueDao.insert(
+            SyncQueueEntity(
+                entityType = "CREDIT",
+                entityId = id,
+                operation = "DELETE",
+                sqlCommand = sql
+            )
+        )
+
+        refreshLocalData()
+        syncData()
     }
 
-    private fun seedSampleData() {
-        val sampleTxs = listOf(
-            TransactionEntity(UUID.randomUUID().toString(), "Salario Mensual", 3500000.0, "income", "Nómina", "2026-10-01 09:00"),
-            TransactionEntity(UUID.randomUUID().toString(), "Supermercado Exito", 280000.0, "expense", "Alimentación", "2026-10-02 14:30"),
-            TransactionEntity(UUID.randomUUID().toString(), "Pago Arriendo", 1200000.0, "expense", "Vivienda", "2026-10-03 10:15"),
-            TransactionEntity(UUID.randomUUID().toString(), "Freelance Diseño", 650000.0, "income", "Trabajos", "2026-10-04 16:45"),
-            TransactionEntity(UUID.randomUUID().toString(), "Servicios Públicos", 185000.0, "expense", "Servicios", "2026-10-05 11:20")
+    private fun purgeLegacySampleData() {
+        val sampleTitles = setOf(
+            "Salario Mensual", "Supermercado Exito", "Pago Arriendo",
+            "Freelance Diseño", "Servicios Públicos"
         )
-        for (tx in sampleTxs) {
-            transactionDao.insert(tx)
+        for (tx in transactionDao.getAll()) {
+            if (tx.title in sampleTitles) {
+                transactionDao.deleteById(tx.id)
+            }
         }
 
-        val sampleCredits = listOf(
-            CreditEntity(UUID.randomUUID().toString(), "Tarjeta de Crédito Visa", 2000000.0, 1200000.0, "2026-10-25"),
-            CreditEntity(UUID.randomUUID().toString(), "Préstamo Libre Inversión", 5000000.0, 3100000.0, "2026-11-10")
+        val sampleCreditTitles = setOf(
+            "Tarjeta de Crédito Visa", "Préstamo Libre Inversión"
         )
-        for (cr in sampleCredits) {
-            creditDao.insert(cr)
+        for (cr in creditDao.getAll()) {
+            if (cr.title in sampleCreditTitles) {
+                creditDao.deleteById(cr.id)
+            }
         }
     }
 }

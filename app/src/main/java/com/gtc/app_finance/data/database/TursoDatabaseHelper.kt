@@ -52,13 +52,36 @@ class TursoDatabaseHelper(
             );
             """.trimIndent()
         )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS sync_queue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entity_type TEXT NOT NULL,
+                entity_id TEXT NOT NULL,
+                operation TEXT NOT NULL,
+                sql_command TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            );
+            """.trimIndent()
+        )
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS payments")
-        db.execSQL("DROP TABLE IF EXISTS credits")
-        db.execSQL("DROP TABLE IF EXISTS transactions")
-        onCreate(db)
+        if (oldVersion < 2) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS sync_queue (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    entity_type TEXT NOT NULL,
+                    entity_id TEXT NOT NULL,
+                    operation TEXT NOT NULL,
+                    sql_command TEXT NOT NULL,
+                    created_at INTEGER NOT NULL
+                );
+                """.trimIndent()
+            )
+        }
     }
 
     override fun onConfigure(db: SQLiteDatabase) {

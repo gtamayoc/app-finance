@@ -53,6 +53,24 @@ class DashboardViewModel(
     init {
         viewModelScope.launch {
             repository.refreshData()
+            // Auto-sync ticker in background every 30 seconds
+            while (true) {
+                kotlinx.coroutines.delay(30_000)
+                repository.syncData()
+            }
+        }
+    }
+
+    fun syncData() {
+        viewModelScope.launch {
+            repository.syncData()
+        }
+    }
+
+    fun clearAllData(onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val ok = repository.clearAllData()
+            onComplete(ok)
         }
     }
 

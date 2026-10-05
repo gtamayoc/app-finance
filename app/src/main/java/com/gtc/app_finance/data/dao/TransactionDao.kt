@@ -63,6 +63,24 @@ class TransactionDao(private val dbHelper: TursoDatabaseHelper) {
         return rows > 0
     }
 
+    fun deleteAll(): Int {
+        val db = dbHelper.writableDatabase
+        return db.delete("transactions", null, null)
+    }
+
+    fun getAllIds(): Set<String> {
+        val ids = mutableSetOf<String>()
+        val db = dbHelper.readableDatabase
+        val cursor = db.query("transactions", arrayOf("id"), null, null, null, null, null)
+        cursor.use { c ->
+            val idx = c.getColumnIndexOrThrow("id")
+            while (c.moveToNext()) {
+                ids.add(c.getString(idx))
+            }
+        }
+        return ids
+    }
+
     fun getCount(): Int {
         val db = dbHelper.readableDatabase
         val cursor = db.rawQuery("SELECT COUNT(*) FROM transactions", null)

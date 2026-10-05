@@ -28,8 +28,14 @@ import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +44,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,10 +53,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.gtc.app_finance.R
 import com.gtc.app_finance.domain.model.ConnectionStatus
 import com.gtc.app_finance.domain.model.Transaction
 import com.gtc.app_finance.domain.model.TransactionType
@@ -82,9 +96,69 @@ fun DashboardScreen(
 
     var showAddSheet by remember { mutableStateOf(false) }
     var showDbSheet by remember { mutableStateOf(false) }
+    var showClearDialog by remember { mutableStateOf(false) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.syncData()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     val addSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val dbSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    if (showClearDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDialog = false },
+            title = {
+                Text(
+                    text = stringResource(R.string.dashboard_clear_data_title),
+                    style = MaterialTheme.typography.titleLarge
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.dashboard_clear_data_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showClearDialog = false
+                        viewModel.clearAllData()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SoftCoral)
+                ) {
+                    Text(
+                        text = stringResource(R.string.dashboard_clear_data_confirm),
+                        color = Color.White
+                    )
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showClearDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = CupertinoCardSurface)
+                ) {
+                    Text(
+                        text = stringResource(R.string.dashboard_clear_data_cancel),
+                        color = TextPrimary
+                    )
+                }
+            },
+            containerColor = CupertinoCardSurface,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
 
     Scaffold(
         containerColor = CupertinoBackground
@@ -96,155 +170,124 @@ fun DashboardScreen(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Header Title with Action Buttons
+            // User Profile Card / Header with Sync Cloud Badge
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f, fill = false)
-                    ) {
-                        Text(
-                            text = "Mi Billetera",
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "Resumen Financiero Mensual",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        // Database diagnostics button
-                        Button(
-                            onClick = { showDbSheet = true },
-                            shape = CircleShape,
-                            contentPadding = PaddingValues(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = when (dbStatus.remote.status) {
-                                    ConnectionStatus.CONNECTED -> EmeraldGreen.copy(alpha = 0.18f)
-                                    ConnectionStatus.ERROR -> SoftCoral.copy(alpha = 0.18f)
-                                    else -> CupertinoCardSurface
-                                },
-                                contentColor = when (dbStatus.remote.status) {
-                                    ConnectionStatus.CONNECTED -> EmeraldGreen
-                                    ConnectionStatus.ERROR -> SoftCoral
-                                    else -> IndigoBlue
-                                }
-                            ),
-                            modifier = Modifier.size(44.dp)
-                        ) {
-                            Icon(
-                                imageVector = when (dbStatus.remote.status) {
-                                    ConnectionStatus.CONNECTED -> Icons.Default.CloudDone
-                                    ConnectionStatus.ERROR -> Icons.Default.CloudOff
-                                    else -> Icons.Default.CloudSync
-                                },
-                                contentDescription = "Validar Base de Datos",
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-
-                        // Add transaction button
-                        Button(
-                            onClick = { showAddSheet = true },
-                            shape = CircleShape,
-                            contentPadding = PaddingValues(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = IndigoBlue,
-                                contentColor = TextPrimary
-                            ),
-                            modifier = Modifier.size(44.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Agregar Movimiento",
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Interactive Database Status Chip (Pill)
-            item {
-                Surface(
-                    onClick = { showDbSheet = true },
+                Card(
                     shape = RoundedCornerShape(20.dp),
-                    color = when (dbStatus.remote.status) {
-                        ConnectionStatus.CONNECTED -> EmeraldGreen.copy(alpha = 0.12f)
-                        ConnectionStatus.CONNECTING -> IndigoBlue.copy(alpha = 0.12f)
-                        ConnectionStatus.ERROR -> SoftCoral.copy(alpha = 0.12f)
-                        ConnectionStatus.NOT_CHECKED -> CupertinoCardSurface
-                    },
-                    border = BorderStroke(
-                        1.dp,
-                        when (dbStatus.remote.status) {
-                            ConnectionStatus.CONNECTED -> EmeraldGreen.copy(alpha = 0.35f)
-                            ConnectionStatus.CONNECTING -> IndigoBlue.copy(alpha = 0.35f)
-                            ConnectionStatus.ERROR -> SoftCoral.copy(alpha = 0.35f)
-                            ConnectionStatus.NOT_CHECKED -> BorderColor
-                        }
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = CupertinoCardSurface),
+                    border = BorderStroke(1.dp, BorderColor),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
+                        // Left: User Avatar + Greeting & Title (Click to open reset dialog)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { showClearDialog = true }
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(8.dp)
+                                    .size(44.dp)
                                     .clip(CircleShape)
                                     .background(
-                                        when (dbStatus.remote.status) {
-                                            ConnectionStatus.CONNECTED -> EmeraldGreen
-                                            ConnectionStatus.CONNECTING -> IndigoBlue
-                                            ConnectionStatus.ERROR -> SoftCoral
-                                            ConnectionStatus.NOT_CHECKED -> TextSecondary
-                                        }
-                                    )
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = when (dbStatus.remote.status) {
-                                    ConnectionStatus.CONNECTED -> "Turso Cloud Conectado (${dbStatus.remote.latencyMs}ms)"
-                                    ConnectionStatus.CONNECTING -> "Comprobando conexión Turso..."
-                                    ConnectionStatus.ERROR -> "Turso Cloud Sin Conexión (Modo Offline)"
-                                    ConnectionStatus.NOT_CHECKED -> "Validar Estado de Conexión BD"
-                                },
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                color = when (dbStatus.remote.status) {
-                                    ConnectionStatus.CONNECTED -> EmeraldGreen
-                                    ConnectionStatus.CONNECTING -> IndigoBlue
-                                    ConnectionStatus.ERROR -> SoftCoral
-                                    ConnectionStatus.NOT_CHECKED -> TextSecondary
-                                },
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                                        Brush.linearGradient(
+                                            colors = listOf(IndigoBlue, IndigoBlue.copy(alpha = 0.65f))
+                                        )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column {
+                                Text(
+                                    text = stringResource(R.string.dashboard_user_greeting),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary
+                                )
+                                Text(
+                                    text = stringResource(R.string.dashboard_user_title),
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = TextPrimary
+                                )
+                            }
                         }
 
-                        Text(
-                            text = "Detalles",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = IndigoBlue
-                        )
+                        // Right: Cloud Sync Badge & Action Buttons
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            val isConnected = dbStatus.remote.status == ConnectionStatus.CONNECTED
+                            val isConnecting = dbStatus.remote.status == ConnectionStatus.CONNECTING
+                            val cloudColor = when {
+                                isConnected -> EmeraldGreen
+                                isConnecting -> IndigoBlue
+                                else -> SoftCoral
+                            }
+
+                            // Cloud Sync Badge Button: Green if synced, Red if not synced, tap to attempt sync
+                            Surface(
+                                onClick = { viewModel.syncData() },
+                                shape = CircleShape,
+                                color = cloudColor.copy(alpha = 0.15f),
+                                border = BorderStroke(1.dp, cloudColor.copy(alpha = 0.45f)),
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    if (isConnecting) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp,
+                                            color = IndigoBlue
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = if (isConnected) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                                            contentDescription = stringResource(R.string.dashboard_sync_action_desc),
+                                            tint = cloudColor,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Add Transaction Button (+)
+                            Button(
+                                onClick = { showAddSheet = true },
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = IndigoBlue,
+                                    contentColor = TextPrimary
+                                ),
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = stringResource(R.string.dashboard_btn_add_movement),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
