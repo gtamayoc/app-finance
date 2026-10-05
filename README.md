@@ -32,6 +32,8 @@ Built entirely with **Kotlin 2.0** and **Jetpack Compose (Material 3)**, it feat
 - **Transaction Management**: Record income and expense entries with category tagging, formatted currency displays, and date tracking.
 - **Credit & Debt Tracking**: Monitor credit cards and personal loans, calculate remaining balances dynamically, and log partial payments (*abonos*) that automatically generate corresponding expense records.
 - **Spending Analytics**: Categorical breakdowns and financial summaries to assess spending habits and debt-to-income distribution.
+- **Cupertino Dual Theme**: Polished iOS-inspired design with adaptive Dark and Light mode color schemes and dynamic system status bar contrast.
+- **Centralized String Resources**: Over 60 UI strings localized into `res/values/strings.xml`, ready for internationalization (i18n).
 - **Local-First Synchronization**: All operations persist locally to SQLite immediately, then sync to Turso Cloud asynchronously via HTTP pipelines.
 - **Resilient Cloud Integration**: Built-in credential failover that detects HTTP 401 unauthorized responses and seamlessly switches between primary and backup authentication tokens.
 - **Diagnostics Dashboard**: Built-in sheet reporting local SQLite health, remote pipeline latency, HTTP status codes, and remote schema initialization controls.
@@ -138,9 +140,16 @@ Use the Gradle wrapper to build and test the application from the command line:
 | **Clean Build** | `.\gradlew.bat clean` | `./gradlew clean` | `build/`, `app/build/` |
 
 > [!TIP]
-> To execute a targeted unit test method, pass the test filter argument:
+> To execute a targeted unit test class, pass the test filter argument:
 > ```powershell
-> .\gradlew.bat testDebugUnitTest --tests "com.gtc.app_finance.ExampleUnitTest.addition_isCorrect"
+> # Run CurrencyFormatter unit tests
+> .\gradlew.bat testDebugUnitTest --tests "com.gtc.app_finance.CurrencyFormatterTest"
+>
+> # Run FinancialSummary calculation logic tests
+> .\gradlew.bat testDebugUnitTest --tests "com.gtc.app_finance.FinancialSummaryLogicTest"
+>
+> # Run Entity & Domain mapping tests
+> .\gradlew.bat testDebugUnitTest --tests "com.gtc.app_finance.EntityMappingTest"
 > ```
 
 ---
@@ -164,28 +173,40 @@ turso.backup.token=<BACKUP_JWT_TOKEN>
 ## Project Structure
 
 ```
-app/src/main/
-├── AndroidManifest.xml
-├── java/com/gtc/app_finance/
-│   ├── FinanceApplication.kt            # Application class with Koin DI setup
-│   ├── MainActivity.kt                  # Activity entry point & root Compose host
-│   ├── di/                              # Koin dependency injection modules (AppModules.kt)
-│   ├── data/
-│   │   ├── dao/                         # SQLite Data Access Objects (Transaction, Credit, Payment)
-│   │   ├── database/                    # DatabaseConfig, TursoConfigProvider, TursoDatabaseHelper, TursoSyncClient
-│   │   ├── entity/                      # SQLite database row models
-│   │   └── repository/                  # FinanceRepository (local SQLite + remote HTTP sync)
-│   ├── domain/
-│   │   └── model/                       # Immutable domain models & diagnostics
-│   └── ui/
-│       ├── components/                  # Reusable UI widgets, Cards, Bottom Sheets
-│       ├── main/                        # Shell layout, bottom navigation & ViewModel factory
-│       ├── screens/
-│       │   ├── analytics/               # Expense and income distribution analytics
-│       │   ├── credits/                 # Debt and loan management screen
-│       │   ├── dashboard/               # Overview screen with financial indicators
-│       │   └── transactions/            # Income and expense history & filtering
-│       ├── theme/                       # Color scheme, typography, and Material 3 theme
-│       └── utils/                       # Currency formatting utilities
-└── res/                                 # App icons, theme definitions, and XML resources
+app/
+├── src/
+│   ├── main/
+│   │   ├── AndroidManifest.xml
+│   │   ├── java/com/gtc/app_finance/
+│   │   │   ├── FinanceApplication.kt            # Application class with Koin DI setup
+│   │   │   ├── MainActivity.kt                  # Activity entry point & root Compose host
+│   │   │   ├── di/                              # Koin dependency injection modules (AppModules.kt)
+│   │   │   ├── data/
+│   │   │   │   ├── dao/                         # SQLite Data Access Objects (Transaction, Credit, Payment)
+│   │   │   │   ├── database/                    # DatabaseConfig, TursoConfigProvider, TursoDatabaseHelper, TursoSyncClient
+│   │   │   │   ├── entity/                      # SQLite database row models
+│   │   │   │   └── repository/                  # FinanceRepository (local SQLite + remote HTTP sync)
+│   │   │   ├── domain/
+│   │   │   │   └── model/                       # Immutable domain models & diagnostics
+│   │   │   └── ui/
+│   │   │       ├── components/                  # Reusable UI widgets, Cards, Bottom Sheets & DiagnosticUiMapper
+│   │   │       ├── main/                        # Shell layout, bottom navigation & ViewModel factory
+│   │   │       ├── screens/
+│   │   │       │   ├── analytics/               # Expense and income distribution analytics
+│   │   │       │   ├── credits/                 # Debt and loan management screen
+│   │   │       │   ├── dashboard/               # Overview screen with financial indicators
+│   │   │       │   └── transactions/            # Income and expense history & filtering
+│   │   │       ├── theme/                       # Color scheme, typography, Cupertino Dark/Light theme
+│   │   │       └── utils/                       # Currency formatting utilities (COP/USD)
+│   │   └── res/
+│   │       └── values/
+│   │           ├── colors.xml                   # Semantic brand colors
+│   │           ├── strings.xml                  # Centralized UI string dictionary (80+ keys)
+│   │           └── themes.xml                   # Window action bar theme definitions
+│   └── test/java/com/gtc/app_finance/
+│       ├── CurrencyFormatterTest.kt             # Currency formatting & negative amount tests
+│       ├── DiagnosticUiMapperTest.kt            # Decoupled UI presentation logic tests
+│       ├── EntityMappingTest.kt                 # Entity <-> Domain bidirectional mapping tests
+│       ├── FinancialSummaryLogicTest.kt         # Net balance and debt aggregation logic tests
+│       └── TursoConfigProviderTest.kt           # Token failover and masking tests
 ```

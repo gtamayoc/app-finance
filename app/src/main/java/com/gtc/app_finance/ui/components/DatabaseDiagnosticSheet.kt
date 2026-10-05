@@ -1,8 +1,7 @@
 package com.gtc.app_finance.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,20 +21,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudSync
-import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -44,28 +37,19 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gtc.app_finance.R
 import com.gtc.app_finance.domain.model.ConnectionStatus
 import com.gtc.app_finance.domain.model.FullDatabaseStatus
-import com.gtc.app_finance.ui.theme.BorderColor
-import com.gtc.app_finance.ui.theme.CupertinoCardSurface
 import com.gtc.app_finance.ui.theme.CupertinoSheetShape
-import com.gtc.app_finance.ui.theme.CupertinoSurface
-import com.gtc.app_finance.ui.theme.EmeraldGreen
-import com.gtc.app_finance.ui.theme.IndigoBlue
-import com.gtc.app_finance.ui.theme.SoftCoral
-import com.gtc.app_finance.ui.theme.TextPrimary
-import com.gtc.app_finance.ui.theme.TextSecondary
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -75,19 +59,30 @@ fun DatabaseDiagnosticSheet(
     onDismissRequest: () -> Unit,
     onTestConnection: () -> Unit,
     onSyncSchema: () -> Unit,
-    onSwitchToken: () -> Unit
+    onSwitchToken: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
     val remote = dbStatus.remote
     val local = dbStatus.local
     val isConnecting = remote.status == ConnectionStatus.CONNECTING
 
+    // Dynamic Theme Color Tokens
+    val colorScheme = MaterialTheme.colorScheme
+    val statusColor = when (remote.status) {
+        ConnectionStatus.CONNECTED -> colorScheme.secondary
+        ConnectionStatus.ERROR -> colorScheme.error
+        ConnectionStatus.CONNECTING -> colorScheme.primary
+        ConnectionStatus.NOT_CHECKED -> colorScheme.onSurfaceVariant
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         shape = CupertinoSheetShape,
-        containerColor = CupertinoSurface,
-        scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f)
+        containerColor = colorScheme.surface,
+        scrimColor = colorScheme.scrim.copy(alpha = 0.5f),
+        modifier = modifier
     ) {
         Column(
             modifier = Modifier
@@ -109,29 +104,29 @@ fun DatabaseDiagnosticSheet(
                         modifier = Modifier
                             .size(44.dp)
                             .clip(CircleShape)
-                            .background(IndigoBlue.copy(alpha = 0.15f)),
+                            .background(colorScheme.primary.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Storage,
-                            contentDescription = "Base de datos",
-                            tint = IndigoBlue,
+                            contentDescription = stringResource(R.string.diagnostic_title),
+                            tint = colorScheme.primary,
                             modifier = Modifier.size(24.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f, fill = false)) {
                         Text(
-                            text = "Estado de Base de Datos",
+                            text = stringResource(R.string.diagnostic_title),
                             style = MaterialTheme.typography.titleLarge,
-                            color = TextPrimary,
+                            color = colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "Diagnóstico y validación en tiempo real",
+                            text = stringResource(R.string.diagnostic_subtitle),
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary,
+                            color = colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -144,8 +139,8 @@ fun DatabaseDiagnosticSheet(
             // Remote Turso Cloud Status Card
             Surface(
                 shape = RoundedCornerShape(18.dp),
-                color = CupertinoCardSurface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor),
+                color = colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                border = BorderStroke(1.dp, colorScheme.outline),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -163,26 +158,16 @@ fun DatabaseDiagnosticSheet(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = when (remote.status) {
-                                    ConnectionStatus.CONNECTED -> Icons.Default.CloudDone
-                                    ConnectionStatus.ERROR -> Icons.Default.CloudOff
-                                    ConnectionStatus.CONNECTING -> Icons.Default.CloudSync
-                                    ConnectionStatus.NOT_CHECKED -> Icons.Default.Cloud
-                                },
+                                imageVector = DiagnosticUiMapper.getStatusIcon(remote.status),
                                 contentDescription = null,
-                                tint = when (remote.status) {
-                                    ConnectionStatus.CONNECTED -> EmeraldGreen
-                                    ConnectionStatus.ERROR -> SoftCoral
-                                    ConnectionStatus.CONNECTING -> IndigoBlue
-                                    ConnectionStatus.NOT_CHECKED -> TextSecondary
-                                },
+                                tint = statusColor,
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Turso Cloud (libSQL)",
+                                text = stringResource(R.string.diagnostic_remote_db),
                                 style = MaterialTheme.typography.titleMedium,
-                                color = TextPrimary,
+                                color = colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -192,14 +177,7 @@ fun DatabaseDiagnosticSheet(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                    when (remote.status) {
-                                        ConnectionStatus.CONNECTED -> EmeraldGreen.copy(alpha = 0.15f)
-                                        ConnectionStatus.ERROR -> SoftCoral.copy(alpha = 0.15f)
-                                        ConnectionStatus.CONNECTING -> IndigoBlue.copy(alpha = 0.15f)
-                                        ConnectionStatus.NOT_CHECKED -> TextSecondary.copy(alpha = 0.15f)
-                                    }
-                                )
+                                .background(statusColor.copy(alpha = 0.15f))
                                 .padding(horizontal = 10.dp, vertical = 5.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -207,7 +185,7 @@ fun DatabaseDiagnosticSheet(
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(10.dp),
                                         strokeWidth = 2.dp,
-                                        color = IndigoBlue
+                                        color = colorScheme.primary
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                 } else {
@@ -215,30 +193,14 @@ fun DatabaseDiagnosticSheet(
                                         modifier = Modifier
                                             .size(7.dp)
                                             .clip(CircleShape)
-                                            .background(
-                                                when (remote.status) {
-                                                    ConnectionStatus.CONNECTED -> EmeraldGreen
-                                                    ConnectionStatus.ERROR -> SoftCoral
-                                                    else -> TextSecondary
-                                                }
-                                            )
+                                            .background(statusColor)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                 }
                                 Text(
-                                    text = when (remote.status) {
-                                        ConnectionStatus.CONNECTED -> "Conectado"
-                                        ConnectionStatus.ERROR -> "Desconectado"
-                                        ConnectionStatus.CONNECTING -> "Probando..."
-                                        ConnectionStatus.NOT_CHECKED -> "Sin validar"
-                                    },
+                                    text = stringResource(DiagnosticUiMapper.getStatusBadgeTextRes(remote.status)),
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = when (remote.status) {
-                                        ConnectionStatus.CONNECTED -> EmeraldGreen
-                                        ConnectionStatus.ERROR -> SoftCoral
-                                        ConnectionStatus.CONNECTING -> IndigoBlue
-                                        ConnectionStatus.NOT_CHECKED -> TextSecondary
-                                    }
+                                    color = statusColor
                                 )
                             }
                         }
@@ -248,14 +210,14 @@ fun DatabaseDiagnosticSheet(
 
                     // Host URL
                     Text(
-                        text = "Endpoint:",
+                        text = stringResource(R.string.diagnostic_endpoint_label),
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary
+                        color = colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = remote.endpointUrl.ifBlank { "No configurado" },
+                        text = remote.endpointUrl.ifBlank { stringResource(R.string.diagnostic_not_configured) },
                         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                        color = TextPrimary,
+                        color = colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -270,14 +232,15 @@ fun DatabaseDiagnosticSheet(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Token Activo:",
+                                text = stringResource(R.string.diagnostic_active_token_label),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = TextSecondary
+                                color = colorScheme.onSurfaceVariant
                             )
+                            val tokenTypeLabel = stringResource(DiagnosticUiMapper.getTokenTypeRes(remote.isBackupToken))
                             Text(
-                                text = "${remote.activeTokenMasked} ${if (remote.isBackupToken) "(Resguardo)" else "(Primario)"}",
+                                text = "${remote.activeTokenMasked} $tokenTypeLabel",
                                 style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                                color = if (remote.status == ConnectionStatus.CONNECTED) EmeraldGreen else TextPrimary,
+                                color = if (remote.status == ConnectionStatus.CONNECTED) colorScheme.secondary else colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -293,10 +256,14 @@ fun DatabaseDiagnosticSheet(
                                 imageVector = Icons.Default.Key,
                                 contentDescription = null,
                                 modifier = Modifier.size(14.dp),
-                                tint = IndigoBlue
+                                tint = colorScheme.primary
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Cambiar Token", fontSize = 11.sp, color = IndigoBlue)
+                            Text(
+                                text = stringResource(R.string.diagnostic_btn_switch_token),
+                                fontSize = 11.sp,
+                                color = colorScheme.primary
+                            )
                         }
                     }
 
@@ -310,14 +277,18 @@ fun DatabaseDiagnosticSheet(
                         Surface(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp),
-                            color = CupertinoSurface
+                            color = colorScheme.surface
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
-                                Text("Latencia", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                                 Text(
-                                    text = if (remote.latencyMs > 0) "${remote.latencyMs} ms" else "-- ms",
+                                    text = stringResource(R.string.diagnostic_latency_label),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = DiagnosticUiMapper.formatLatency(remote.latencyMs),
                                     style = MaterialTheme.typography.titleMedium,
-                                    color = if (remote.latencyMs in 1..400) EmeraldGreen else TextPrimary
+                                    color = if (DiagnosticUiMapper.isLatencyOptimal(remote.latencyMs)) colorScheme.secondary else colorScheme.onSurface
                                 )
                             }
                         }
@@ -325,14 +296,18 @@ fun DatabaseDiagnosticSheet(
                         Surface(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp),
-                            color = CupertinoSurface
+                            color = colorScheme.surface
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
-                                Text("Código HTTP", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                                 Text(
-                                    text = if (remote.httpStatusCode > 0) "${remote.httpStatusCode}" else "--",
+                                    text = stringResource(R.string.diagnostic_http_status_label),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = DiagnosticUiMapper.formatHttpStatus(remote.httpStatusCode),
                                     style = MaterialTheme.typography.titleMedium,
-                                    color = if (remote.httpStatusCode == 200) EmeraldGreen else SoftCoral
+                                    color = if (DiagnosticUiMapper.isHttpOk(remote.httpStatusCode)) colorScheme.secondary else colorScheme.error
                                 )
                             }
                         }
@@ -342,9 +317,9 @@ fun DatabaseDiagnosticSheet(
 
                     // Tables Verified in Cloud
                     Text(
-                        text = "Tablas en la Nube:",
+                        text = stringResource(R.string.diagnostic_cloud_tables_label),
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary
+                        color = colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(6.dp))
 
@@ -356,8 +331,8 @@ fun DatabaseDiagnosticSheet(
                             remote.tablesVerified.forEach { table ->
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = EmeraldGreen.copy(alpha = 0.12f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldGreen.copy(alpha = 0.3f))
+                                    color = colorScheme.secondary.copy(alpha = 0.12f),
+                                    border = BorderStroke(1.dp, colorScheme.secondary.copy(alpha = 0.3f))
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -366,20 +341,20 @@ fun DatabaseDiagnosticSheet(
                                         Icon(
                                             imageVector = Icons.Default.CheckCircle,
                                             contentDescription = null,
-                                            tint = EmeraldGreen,
+                                            tint = colorScheme.secondary,
                                             modifier = Modifier.size(12.dp)
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text(table, style = MaterialTheme.typography.labelSmall, color = TextPrimary)
+                                        Text(table, style = MaterialTheme.typography.labelSmall, color = colorScheme.onSurface)
                                     }
                                 }
                             }
                         }
                     } else {
                         Text(
-                            text = if (remote.status == ConnectionStatus.CONNECTED) "No se detectaron tablas creadas aún." else "Sin conexión para consultar tablas.",
+                            text = stringResource(DiagnosticUiMapper.getEmptyTablesMessageRes(remote.status)),
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
+                            color = colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -388,7 +363,7 @@ fun DatabaseDiagnosticSheet(
                         Text(
                             text = remote.message,
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (remote.status == ConnectionStatus.CONNECTED) EmeraldGreen else SoftCoral
+                            color = if (remote.status == ConnectionStatus.CONNECTED) colorScheme.secondary else colorScheme.error
                         )
                     }
                 }
@@ -399,8 +374,8 @@ fun DatabaseDiagnosticSheet(
             // Local SQLite Storage Card
             Surface(
                 shape = RoundedCornerShape(18.dp),
-                color = CupertinoCardSurface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor),
+                color = colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                border = BorderStroke(1.dp, colorScheme.outline),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -420,14 +395,14 @@ fun DatabaseDiagnosticSheet(
                             Icon(
                                 imageVector = Icons.Default.Storage,
                                 contentDescription = null,
-                                tint = EmeraldGreen,
+                                tint = colorScheme.secondary,
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "SQLite Local (Offline)",
+                                text = stringResource(R.string.diagnostic_local_db),
                                 style = MaterialTheme.typography.titleMedium,
-                                color = TextPrimary,
+                                color = colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -436,13 +411,13 @@ fun DatabaseDiagnosticSheet(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(EmeraldGreen.copy(alpha = 0.15f))
+                                .background(colorScheme.secondary.copy(alpha = 0.15f))
                                 .padding(horizontal = 10.dp, vertical = 5.dp)
                         ) {
                             Text(
-                                text = "Activo • v${local.version}",
+                                text = stringResource(R.string.diagnostic_local_active, local.version),
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = EmeraldGreen
+                                color = colorScheme.secondary
                             )
                         }
                     }
@@ -450,9 +425,9 @@ fun DatabaseDiagnosticSheet(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "Archivo: ${local.databaseName} (Modo persistente local)",
+                        text = stringResource(R.string.diagnostic_local_file, local.databaseName),
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
+                        color = colorScheme.onSurfaceVariant
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -465,33 +440,48 @@ fun DatabaseDiagnosticSheet(
                         Surface(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),
-                            color = CupertinoSurface
+                            color = colorScheme.surface
                         ) {
                             Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Movimientos", style = MaterialTheme.typography.labelSmall, color = TextSecondary, maxLines = 1)
-                                Text("${local.transactionCount}", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                                Text(
+                                    text = stringResource(R.string.diagnostic_stat_transactions),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                                Text("${local.transactionCount}", style = MaterialTheme.typography.titleMedium, color = colorScheme.onSurface)
                             }
                         }
 
                         Surface(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),
-                            color = CupertinoSurface
+                            color = colorScheme.surface
                         ) {
                             Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Créditos", style = MaterialTheme.typography.labelSmall, color = TextSecondary, maxLines = 1)
-                                Text("${local.creditCount}", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                                Text(
+                                    text = stringResource(R.string.diagnostic_stat_credits),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                                Text("${local.creditCount}", style = MaterialTheme.typography.titleMedium, color = colorScheme.onSurface)
                             }
                         }
 
                         Surface(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),
-                            color = CupertinoSurface
+                            color = colorScheme.surface
                         ) {
                             Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Abonos", style = MaterialTheme.typography.labelSmall, color = TextSecondary, maxLines = 1)
-                                Text("${local.paymentCount}", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                                Text(
+                                    text = stringResource(R.string.diagnostic_stat_payments),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                                Text("${local.paymentCount}", style = MaterialTheme.typography.titleMedium, color = colorScheme.onSurface)
                             }
                         }
                     }
@@ -518,10 +508,15 @@ fun DatabaseDiagnosticSheet(
                         imageVector = Icons.Default.CloudSync,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
-                        tint = IndigoBlue
+                        tint = colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Sincronizar Tablas", maxLines = 1, color = IndigoBlue, fontSize = 12.sp)
+                    Text(
+                        text = stringResource(R.string.diagnostic_btn_sync),
+                        maxLines = 1,
+                        color = colorScheme.primary,
+                        fontSize = 12.sp
+                    )
                 }
 
                 Button(
@@ -532,18 +527,21 @@ fun DatabaseDiagnosticSheet(
                         .height(48.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = IndigoBlue,
-                        contentColor = TextPrimary
+                        containerColor = colorScheme.primary,
+                        contentColor = colorScheme.onPrimary
                     )
                 ) {
                     if (isConnecting) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
-                            color = TextPrimary
+                            color = colorScheme.onPrimary
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Probando...", fontSize = 12.sp)
+                        Text(
+                            text = stringResource(R.string.diagnostic_btn_testing),
+                            fontSize = 12.sp
+                        )
                     } else {
                         Icon(
                             imageVector = Icons.Default.Refresh,
@@ -551,7 +549,10 @@ fun DatabaseDiagnosticSheet(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Probar Conexión", fontSize = 12.sp)
+                        Text(
+                            text = stringResource(R.string.diagnostic_btn_test),
+                            fontSize = 12.sp
+                        )
                     }
                 }
             }

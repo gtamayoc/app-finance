@@ -1,3 +1,119 @@
 <resources>
     <string name="app_name">app-finance</string>
+
+    <!-- Navigation / Bottom Tab Bar -->
+    <string name="tab_dashboard">Inicio</string>
+    <string name="tab_transactions">Movimientos</string>
+    <string name="tab_credits">Créditos</string>
+    <string name="tab_analytics">Analítica</string>
+
+    <!-- Dashboard Screen -->
+    <string name="dashboard_title">Mi Billetera</string>
+    <string name="dashboard_subtitle">Resumen Financiero Mensual</string>
+    <string name="dashboard_btn_validate_db">Validar Base de Datos</string>
+    <string name="dashboard_btn_add_movement">Agregar Movimiento</string>
+    <string name="dashboard_db_status_connected">Turso Cloud Conectado (%1$dms)</string>
+    <string name="dashboard_db_status_connecting">Comprobando conexión Turso...</string>
+    <string name="dashboard_db_status_error">Turso Cloud Sin Conexión (Modo Offline)</string>
+    <string name="dashboard_db_status_not_checked">Validar Estado de Conexión BD</string>
+    <string name="dashboard_db_details">Detalles</string>
+    <string name="dashboard_total_net_balance">Balance Total Neto</string>
+    <string name="dashboard_income">Ingresos</string>
+    <string name="dashboard_expense">Gastos</string>
+    <string name="dashboard_active_credits_title">Deudas y Créditos Activos</string>
+    <string name="dashboard_pending_credits_count">%1$d créditos pendientes</string>
+    <string name="dashboard_recent_movements">Movimientos Recientes</string>
+    <string name="dashboard_view_all">Ver Todos</string>
+    <string name="dashboard_no_movements">No hay movimientos registrados</string>
+
+    <!-- Transactions Screen -->
+    <string name="transactions_title">Historial de Movimientos</string>
+    <string name="transactions_search_placeholder">Buscar por título o categoría...</string>
+    <string name="transactions_search_desc">Buscar</string>
+    <string name="transactions_filter_all">Todos</string>
+    <string name="transactions_filter_income">Ingresos</string>
+    <string name="transactions_filter_expense">Gastos</string>
+    <string name="transactions_empty">No se encontraron movimientos</string>
+    <string name="transactions_fab_new">Nuevo Movimiento</string>
+    <string name="transactions_delete">Eliminar movimiento</string>
+
+    <!-- Credits Screen -->
+    <string name="credits_title">Gestión de Créditos</string>
+    <string name="credits_subtitle">Control de deudas y abonos en tiempo real</string>
+    <string name="credits_empty">No tienes créditos registrados</string>
+    <string name="credits_fab_new">Nuevo Crédito</string>
+    <string name="credits_card_due_date">Vence: %1$s</string>
+    <string name="credits_card_paid">Pagado</string>
+    <string name="credits_card_remaining_balance">Saldo Restante</string>
+    <string name="credits_card_total_amount">Monto Total</string>
+    <string name="credits_card_register_payment">Registrar Abono</string>
+    <string name="credits_card_payment_desc">Abonar Crédito</string>
+
+    <!-- Analytics Screen -->
+    <string name="analytics_title">Analítica Financiera</string>
+    <string name="analytics_subtitle">Distribución de gastos por categoría</string>
+    <string name="analytics_expenses_by_category">Gastos por Categoría</string>
+    <string name="analytics_no_expenses">No hay datos de gastos registrados</string>
+    <string name="analytics_total_expenses">Total Gastos</string>
+    <string name="analytics_income_vs_expense">Ingresos vs Gastos</string>
+    <string name="analytics_detailed_breakdown">Desglose Detallado</string>
+
+    <!-- Add Transaction Sheet -->
+    <string name="add_transaction_title">Nuevo Movimiento</string>
+    <string name="add_transaction_type_income">Ingreso</string>
+    <string name="add_transaction_type_expense">Gasto</string>
+    <string name="add_transaction_field_title">Título / Descripción</string>
+    <string name="add_transaction_field_amount">Monto ($)</string>
+    <string name="add_transaction_field_category">Categoría</string>
+    <string name="add_transaction_btn_cancel">Cancelar</string>
+    <string name="add_transaction_btn_save">Guardar Movimiento</string>
+
+    <!-- Add Credit Sheet -->
+    <string name="add_credit_title">Nuevo Crédito / Deuda</string>
+    <string name="add_credit_field_title">Entidad / Título del Crédito</string>
+    <string name="add_credit_field_amount">Monto Total ($)</string>
+    <string name="add_credit_field_due_date">Fecha de Vencimiento (AAAA-MM-DD)</string>
+    <string name="add_credit_btn_cancel">Cancelar</string>
+    <string name="add_credit_btn_save">Guardar</string>
+
+    <!-- Add Payment Sheet -->
+    <string name="add_payment_title">Abonar a Crédito</string>
+    <string name="add_payment_pending_balance">Saldo pendiente: %1$s</string>
+    <string name="add_payment_field_amount">Monto a Abonar ($)</string>
+    <string name="add_payment_btn_cancel">Cancelar</string>
+    <string name="add_payment_btn_save">Registrar Abono</string>
+
+    <!-- Database Diagnostic Sheet -->
+    <string name="diagnostic_title">Estado de Base de Datos</string>
+    <string name="diagnostic_subtitle">Diagnóstico y validación en tiempo real</string>
+    <string name="diagnostic_local_db">Base de Datos Local SQLite</string>
+    <string name="diagnostic_remote_db">Turso Cloud (libSQL Pipeline)</string>
+    <string name="diagnostic_btn_test">Probar Conexión</string>
+    <string name="diagnostic_btn_sync">Sincronizar Tablas</string>
+    <string name="diagnostic_btn_switch_token">Alternar Token</string>
+    <string name="diagnostic_btn_close">Cerrar Diagnóstico</string>
+    <string name="diagnostic_status_connected">Conectado y Sincronizado</string>
+    <string name="diagnostic_status_error">Sin Conexión / Error</string>
+    <string name="diagnostic_status_connecting">Verificando conexión...</string>
+    <string name="diagnostic_status_not_checked">No Verificado</string>
+    <string name="diagnostic_badge_connected">Conectado</string>
+    <string name="diagnostic_badge_disconnected">Desconectado</string>
+    <string name="diagnostic_badge_connecting">Probando...</string>
+    <string name="diagnostic_badge_not_checked">Sin validar</string>
+    <string name="diagnostic_endpoint_label">Endpoint:</string>
+    <string name="diagnostic_not_configured">No configurado</string>
+    <string name="diagnostic_active_token_label">Token Activo:</string>
+    <string name="diagnostic_token_backup">(Resguardo)</string>
+    <string name="diagnostic_token_primary">(Primario)</string>
+    <string name="diagnostic_latency_label">Latencia</string>
+    <string name="diagnostic_http_status_label">Código HTTP</string>
+    <string name="diagnostic_cloud_tables_label">Tablas en la Nube:</string>
+    <string name="diagnostic_no_tables_created">No se detectaron tablas creadas aún.</string>
+    <string name="diagnostic_no_connection_tables">Sin conexión para consultar tablas.</string>
+    <string name="diagnostic_local_active">Activo • v%1$d</string>
+    <string name="diagnostic_local_file">Archivo: %1$s (Modo persistente local)</string>
+    <string name="diagnostic_stat_transactions">Movimientos</string>
+    <string name="diagnostic_stat_credits">Créditos</string>
+    <string name="diagnostic_stat_payments">Abonos</string>
+    <string name="diagnostic_btn_testing">Probando...</string>
 </resources>

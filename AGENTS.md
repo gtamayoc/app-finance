@@ -71,13 +71,22 @@ Always execute commands through the Gradle wrapper (`.\gradlew.bat` on Windows o
   ```powershell
   $env:JAVA_HOME = "C:\Program Files\Java\jdk-17"; .\gradlew.bat testDebugUnitTest
   ```
-- **Run a single test class**:
+- **Run targeted unit test classes**:
   ```powershell
-  .\gradlew.bat testDebugUnitTest --tests "com.gtc.app_finance.ExampleUnitTest"
-  ```
-- **Run a specific test method**:
-  ```powershell
-  .\gradlew.bat testDebugUnitTest --tests "com.gtc.app_finance.ExampleUnitTest.addition_isCorrect"
+  # CurrencyFormatter test
+  .\gradlew.bat testDebugUnitTest --tests "com.gtc.app_finance.CurrencyFormatterTest"
+
+  # Entity & Domain mappers test
+  .\gradlew.bat testDebugUnitTest --tests "com.gtc.app_finance.EntityMappingTest"
+
+  # Financial summary calculation logic test
+  .\gradlew.bat testDebugUnitTest --tests "com.gtc.app_finance.FinancialSummaryLogicTest"
+
+  # Turso token failover & provider test
+  .\gradlew.bat testDebugUnitTest --tests "com.gtc.app_finance.TursoConfigProviderTest"
+
+  # Presentation UI mapper test
+  .\gradlew.bat testDebugUnitTest --tests "com.gtc.app_finance.DiagnosticUiMapperTest"
   ```
 - **Run connected instrumentation tests** *(requires running Android emulator or connected device via ADB)*:
   ```powershell
@@ -86,7 +95,7 @@ Always execute commands through the Gradle wrapper (`.\gradlew.bat` on Windows o
 
 ### Test Structure & Guidelines
 - **Unit Tests (`app/src/test/java/`)**:
-  - Focus on Repositories, ViewModels, business logic, financial summary calculations, and data mappers (`toDomain()`, `fromDomain()`).
+  - Focus on Repositories, ViewModels, UI presentation mappers, business logic, financial summary calculations, and data mappers (`toDomain()`, `fromDomain()`).
   - Unit tests run directly on the host JVM (Temurin / OpenJDK 17).
   - Fast feedback loop; no Android device needed.
 - **Instrumented Tests (`app/src/androidTest/java/`)**:
@@ -97,58 +106,49 @@ Always execute commands through the Gradle wrapper (`.\gradlew.bat` on Windows o
 ## 5. Architecture & Codebase Layout
 
 ```
-app/src/main/
-├── AndroidManifest.xml
-├── java/com/gtc/app_finance/
-│   ├── FinanceApplication.kt            # Application class with Koin DI container setup
-│   ├── MainActivity.kt                  # Activity entry point with Compose host
-│   ├── di/                              # Dependency Injection modules (AppModules.kt)
-│   ├── data/
-│   │   ├── dao/                         # Data Access Objects for SQLite
-│   │   │   ├── CreditDao.kt
-│   │   │   ├── PaymentDao.kt
-│   │   │   └── TransactionDao.kt
-│   │   ├── database/                    # Database setup, helpers & remote sync
-│   │   │   ├── AppDatabase.kt           # SQLite database wrapper
-│   │   │   ├── DatabaseConfig.kt        # Database credentials and configuration model
-│   │   │   ├── TursoConfigProvider.kt   # Dynamic token provider & failover manager
-│   │   │   ├── TursoDatabaseHelper.kt   # SQLiteOpenHelper schema & table DDL
-│   │   │   └── TursoSyncClient.kt       # Remote HTTP libSQL pipeline sync
-│   │   ├── entity/                      # Database entities (SQLite row representations)
-│   │   │   ├── CreditEntity.kt
-│   │   │   ├── PaymentEntity.kt
-│   │   │   └── TransactionEntity.kt
-│   │   └── repository/
-│   │       └── FinanceRepository.kt     # Unified data layer combining local + remote
-│   ├── domain/
-│   │   └── model/                       # Domain models used by UI & ViewModels
-│   │       ├── Credit.kt
-│   │       ├── DatabaseDiagnostic.kt
-│   │       ├── FinancialSummary.kt
-│   │       ├── Payment.kt
-│   │       └── Transaction.kt
-│   └── ui/
-│       ├── components/                  # Reusable UI widgets & BottomSheets
-│       │   ├── AddCreditSheet.kt
-│       │   ├── AddPaymentSheet.kt
-│       │   ├── AddTransactionSheet.kt
-│       │   ├── CreditCardItem.kt
-│       │   ├── CupertinoCard.kt
-│       │   ├── CupertinoSegmentedControl.kt
-│       │   ├── CupertinoTabBar.kt
-│       │   └── DatabaseDiagnosticSheet.kt
-│       ├── main/                        # Shell UI & navigation graph
-│       │   ├── MainScreen.kt            # Scaffold with BottomBar & content
-│       │   ├── Navigation.kt            # NavHost and screen routing
-│       │   └── SimpleViewModelFactory.kt# Factory for ViewModel instantiation
-│       ├── screens/                     # Feature screens & corresponding ViewModels
-│       │   ├── analytics/
-│       │   ├── credits/
-│       │   ├── dashboard/
-│       │   └── transactions/
-│       ├── theme/                       # Color palette, Shapes, Typography & Theme
-│       └── utils/
-│           └── CurrencyFormatter.kt     # Financial amount formatting (COP/USD)
+app/
+├── src/
+│   ├── main/
+│   │   ├── AndroidManifest.xml
+│   │   ├── java/com/gtc/app_finance/
+│   │   │   ├── FinanceApplication.kt            # Application class with Koin DI container setup
+│   │   │   ├── MainActivity.kt                  # Activity entry point with Compose host
+│   │   │   ├── di/                              # Dependency Injection modules (AppModules.kt)
+│   │   │   ├── data/
+│   │   │   │   ├── dao/                         # Data Access Objects for SQLite (Transaction, Credit, Payment)
+│   │   │   │   ├── database/                    # Database setup, helpers & remote sync
+│   │   │   │   │   ├── AppDatabase.kt           # SQLite database wrapper
+│   │   │   │   │   ├── DatabaseConfig.kt        # Database credentials and configuration model
+│   │   │   │   │   ├── TursoConfigProvider.kt   # Dynamic token provider & failover manager
+│   │   │   │   │   ├── TursoDatabaseHelper.kt   # SQLiteOpenHelper schema & table DDL
+│   │   │   │   │   └── TursoSyncClient.kt       # Remote HTTP libSQL pipeline sync
+│   │   │   │   ├── entity/                      # Database entities (SQLite row representations)
+│   │   │   │   └── repository/
+│   │   │   │       └── FinanceRepository.kt     # Unified data layer combining local + remote
+│   │   │   ├── domain/
+│   │   │   │   └── model/                       # Domain models used by UI & ViewModels
+│   │   │   └── ui/
+│   │   │       ├── components/                  # Reusable UI widgets, BottomSheets & DiagnosticUiMapper
+│   │   │       ├── main/                        # Shell UI & navigation graph (MainScreen, Navigation)
+│   │   │       ├── screens/                     # Feature screens & corresponding ViewModels
+│   │   │       │   ├── analytics/
+│   │   │       │   ├── credits/
+│   │   │       │   ├── dashboard/
+│   │   │       │   └── transactions/
+│   │   │       ├── theme/                       # Color palette, Shapes, Typography & Theme (Dark/Light)
+│   │   │       └── utils/
+│   │   │           └── CurrencyFormatter.kt     # Financial amount formatting (COP/USD)
+│   │   └── res/
+│   │       └── values/
+│   │           ├── colors.xml                   # Semantic brand colors
+│   │           ├── strings.xml                  # Centralized UI string dictionary (80+ keys)
+│   │           └── themes.xml                   # Action bar styles
+│   └── test/java/com/gtc/app_finance/
+│       ├── CurrencyFormatterTest.kt             # Currency formatting & negative numbers test
+│       ├── DiagnosticUiMapperTest.kt            # Decoupled UI presentation logic test
+│       ├── EntityMappingTest.kt                 # Entity <-> Domain bidirectional mapping test
+│       ├── FinancialSummaryLogicTest.kt         # Net balance and debt aggregation logic test
+│       └── TursoConfigProviderTest.kt           # Token failover and masking test
 ```
 
 ---
@@ -164,7 +164,18 @@ app/src/main/
 - **Stateless Composables**: Separate stateful screen containers from stateless presentation composables.
 - **State Hoisting**: Pass events up via lambda callbacks (e.g., `onDismiss: () -> Unit`, `onConfirm: (Transaction) -> Unit`) and state down via parameters.
 - **Modifier Guidelines**: Always expose `modifier: Modifier = Modifier` as the first optional parameter on custom UI components.
-- **Theme Usage**: Always read styles and colors from `MaterialTheme.colorScheme` and `MaterialTheme.typography` instead of hardcoding raw values.
+- **Theme Usage & Dynamic Semantic Colors**: Never import static hex colors (e.g. `EmeraldGreen`, `SoftCoral`, `IndigoBlue`) directly into UI screens or components. Always consume semantic tokens from `MaterialTheme.colorScheme` (`primary`, `secondary`, `tertiary`, `error`, `surface`, `surfaceVariant`, `outline`, `onSurface`, `onSurfaceVariant`). This guarantees full contrast accessibility and automated adaptation between Cupertino Dark and Light palettes.
+- **Cupertino Theme & Mode Support**: Follow the dual Cupertino theme palette (`DarkColorScheme` and `LightColorScheme`) in `Theme.kt`. Respect the `darkTheme` flag and ensure `WindowCompat` insets adapt system bar icon appearance (`isAppearanceLightStatusBars = !darkTheme`).
+- **Clean Compose Lifecycle & Dead Code**: Do not call `rememberCoroutineScope()` unless actively launching coroutines within that Composable. Avoid wrapping contents in manual `verticalScroll` inside containers like `ModalBottomSheet` that already handle nested dragging/scrolling unless explicitly tested for gesture conflicts.
+
+### Separation of Presentation Logic
+- **Presentation Decoupling**: Never perform status-to-badge mappings, conditional icon selections, millisecond/HTTP formatting, or business logic directly inside `@Composable` functions.
+- **Pure UI Mappers**: Extract presentation rules into dedicated, pure Kotlin objects (e.g., `DiagnosticUiMapper`) or ViewModels. This keeps Composables strictly declarative and enables fast, comprehensive unit testing without requiring the Compose runtime or Android device emulator.
+
+### Strings & Localization Standards
+- **Centralized Strings**: Never hardcode user-facing string literals or `contentDescription` text in Composable functions.
+- Always declare string resources in `res/values/strings.xml` and consume them using `stringResource(R.string.<id>)` or format strings (`stringResource(R.string.<id>, arg1, arg2)`).
+- Maintain semantic prefixes: `tab_*`, `dashboard_*`, `transactions_*`, `credits_*`, `analytics_*`, `add_*`, `diagnostic_*`.
 
 ### State & Concurrency Guidelines
 - Use Kotlin Coroutines and Kotlin `StateFlow` for observable UI state.
