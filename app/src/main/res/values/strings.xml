@@ -116,4 +116,8 @@
     <string name="diagnostic_stat_credits">Créditos</string>
     <string name="diagnostic_stat_payments">Abonos</string>
     <string name="diagnostic_btn_testing">Probando...</string>
+    <string name="diagnostic_data_invalid_title">Diagnóstico no disponible</string>
+    <string name="diagnostic_data_invalid_desc">No se pudo recuperar el estado actual de la base de datos debido a datos inconsistentes o no inicializados.</string>
+    <string name="diagnostic_local_unhealthy">Inconsistente • v%1$d</string>
+    <string name="diagnostic_local_unhealthy_desc">Advertencia: Se detectaron fallas o inconsistencias en la base de datos local.</string>
 </resources>
