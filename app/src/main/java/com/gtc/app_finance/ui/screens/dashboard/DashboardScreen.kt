@@ -56,6 +56,7 @@ import com.gtc.app_finance.domain.model.TransactionType
 import com.gtc.app_finance.ui.components.AddTransactionSheet
 import com.gtc.app_finance.ui.components.CupertinoCard
 import com.gtc.app_finance.ui.components.DatabaseDiagnosticSheet
+import com.gtc.app_finance.ui.components.DatabaseDiagnosticActions
 import com.gtc.app_finance.ui.theme.BorderColor
 import com.gtc.app_finance.ui.theme.CupertinoBackground
 import com.gtc.app_finance.ui.theme.CupertinoCardSurface
@@ -77,6 +78,7 @@ fun DashboardScreen(
     val transactions by viewModel.recentTransactions.collectAsState()
     val credits by viewModel.credits.collectAsState()
     val dbStatus by viewModel.dbStatus.collectAsState()
+    val diagnosticUiState by viewModel.diagnosticUiState.collectAsState()
 
     var showAddSheet by remember { mutableStateOf(false) }
     var showDbSheet by remember { mutableStateOf(false) }
@@ -509,11 +511,13 @@ fun DashboardScreen(
     if (showDbSheet) {
         DatabaseDiagnosticSheet(
             sheetState = dbSheetState,
-            dbStatus = dbStatus,
-            onDismissRequest = { showDbSheet = false },
-            onTestConnection = { viewModel.testDatabaseConnection() },
-            onSyncSchema = { viewModel.syncRemoteSchema() },
-            onSwitchToken = { viewModel.switchToken() }
+            uiState = diagnosticUiState,
+            actions = DatabaseDiagnosticActions(
+                onDismissRequest = { showDbSheet = false },
+                onTestConnection = { viewModel.testDatabaseConnection() },
+                onSyncSchema = { viewModel.syncRemoteSchema() },
+                onSwitchToken = { viewModel.switchToken() }
+            )
         )
     }
 }

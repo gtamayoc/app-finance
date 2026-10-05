@@ -55,7 +55,69 @@ import com.gtc.app_finance.domain.model.FullDatabaseStatus
 import com.gtc.app_finance.domain.model.LocalDbDiagnostic
 import com.gtc.app_finance.domain.model.RemoteDbDiagnostic
 import com.gtc.app_finance.ui.theme.CupertinoSheetShape
+import com.gtc.app_finance.ui.theme.spacing
 
+/**
+ * Main Database Diagnostic Bottom Sheet.
+ * Consumes pre-processed [DiagnosticUiState] from the ViewModel and executes callbacks via [DatabaseDiagnosticActions].
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DatabaseDiagnosticSheet(
+    sheetState: SheetState,
+    uiState: DiagnosticUiState,
+    actions: DatabaseDiagnosticActions,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val spacing = MaterialTheme.spacing
+
+    ModalBottomSheet(
+        onDismissRequest = actions.onDismissRequest,
+        sheetState = sheetState,
+        shape = CupertinoSheetShape,
+        containerColor = colorScheme.surface,
+        scrimColor = colorScheme.scrim.copy(alpha = 0.5f),
+        modifier = modifier
+    ) {
+        when (uiState) {
+            is DiagnosticUiState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(spacing.extraLarge),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = colorScheme.primary)
+                }
+            }
+            is DiagnosticUiState.Error -> {
+                DiagnosticDataErrorContent(
+                    onDismissRequest = actions.onDismissRequest,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = spacing.extraLarge, vertical = spacing.normal)
+                )
+            }
+            is DiagnosticUiState.Success -> {
+                DiagnosticSheetContent(
+                    dbStatus = uiState.status,
+                    actions = actions
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Backward-compatible overload for [DatabaseDiagnosticSheet] receiving raw domain status and individual lambdas.
+ */
+@Deprecated(
+    message = "Use the overload accepting DiagnosticUiState and DatabaseDiagnosticActions",
+    replaceWith = ReplaceWith(
+        "DatabaseDiagnosticSheet(sheetState, uiState, actions, modifier)"
+    )
+)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DatabaseDiagnosticSheet(
@@ -67,59 +129,65 @@ fun DatabaseDiagnosticSheet(
     onSwitchToken: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-
-    ModalBottomSheet(
+    val uiState = if (DiagnosticUiMapper.isDataValid(dbStatus)) {
+        DiagnosticUiState.Success(dbStatus)
+    } else {
+        DiagnosticUiState.Error()
+    }
+    val actions = DatabaseDiagnosticActions(
         onDismissRequest = onDismissRequest,
+        onTestConnection = onTestConnection,
+        onSyncSchema = onSyncSchema,
+        onSwitchToken = onSwitchToken
+    )
+    DatabaseDiagnosticSheet(
         sheetState = sheetState,
-        shape = CupertinoSheetShape,
-        containerColor = colorScheme.surface,
-        scrimColor = colorScheme.scrim.copy(alpha = 0.5f),
+        uiState = uiState,
+        actions = actions,
         modifier = modifier
+    )
+}
+
+@Composable
+private fun DiagnosticSheetContent(
+    dbStatus: FullDatabaseStatus,
+    actions: DatabaseDiagnosticActions,
+    modifier: Modifier = Modifier
+) {
+    val spacing = MaterialTheme.spacing
+    val scrollState = rememberScrollState()
+    val isConnecting = dbStatus.remote.status == ConnectionStatus.CONNECTING
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = spacing.extraLarge)
+            .verticalScroll(scrollState)
     ) {
-        if (!DiagnosticUiMapper.isDataValid(dbStatus)) {
-            DiagnosticDataErrorContent(
-                onDismissRequest = onDismissRequest,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
-            )
-        } else {
-            val scrollState = rememberScrollState()
-            val isConnecting = dbStatus.remote.status == ConnectionStatus.CONNECTING
+        DiagnosticHeader()
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .verticalScroll(scrollState)
-            ) {
-                DiagnosticHeader()
+        Spacer(modifier = Modifier.height(spacing.large))
 
-                Spacer(modifier = Modifier.height(20.dp))
+        RemoteStatusCard(
+            remote = dbStatus.remote,
+            onSwitchToken = actions.onSwitchToken
+        )
 
-                RemoteStatusCard(
-                    remote = dbStatus.remote,
-                    onSwitchToken = onSwitchToken
-                )
+        Spacer(modifier = Modifier.height(spacing.normal))
 
-                Spacer(modifier = Modifier.height(16.dp))
+        LocalStatusCard(
+            local = dbStatus.local
+        )
 
-                LocalStatusCard(
-                    local = dbStatus.local
-                )
+        Spacer(modifier = Modifier.height(spacing.large))
 
-                Spacer(modifier = Modifier.height(20.dp))
+        DiagnosticActionButtons(
+            isConnecting = isConnecting,
+            onSyncSchema = actions.onSyncSchema,
+            onTestConnection = actions.onTestConnection
+        )
 
-                DiagnosticActionButtons(
-                    isConnecting = isConnecting,
-                    onSyncSchema = onSyncSchema,
-                    onTestConnection = onTestConnection
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-        }
+        Spacer(modifier = Modifier.height(spacing.extraLarge))
     }
 }
 
@@ -128,6 +196,8 @@ private fun DiagnosticHeader(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val spacing = MaterialTheme.spacing
+
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -151,7 +221,7 @@ private fun DiagnosticHeader(
                     modifier = Modifier.size(24.dp)
                 )
             }
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(spacing.medium))
             Column(modifier = Modifier.weight(1f, fill = false)) {
                 Text(
                     text = stringResource(R.string.diagnostic_title),
@@ -175,17 +245,19 @@ private fun DiagnosticHeader(
 @Composable
 private fun StatusBadge(
     status: ConnectionStatus,
-    statusColor: Color,
+    severity: StatusSeverity = DiagnosticUiMapper.getStatusSeverity(status),
     modifier: Modifier = Modifier
 ) {
     val isConnecting = status == ConnectionStatus.CONNECTING
     val colorScheme = MaterialTheme.colorScheme
+    val spacing = MaterialTheme.spacing
+    val statusColor = severity.asColor()
 
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(statusColor.copy(alpha = 0.15f))
-            .padding(horizontal = 10.dp, vertical = 5.dp)
+            .padding(horizontal = spacing.semiMedium, vertical = 5.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (isConnecting) {
@@ -194,7 +266,7 @@ private fun StatusBadge(
                     strokeWidth = 2.dp,
                     color = colorScheme.primary
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(spacing.compact))
             } else {
                 Box(
                     modifier = Modifier
@@ -202,7 +274,7 @@ private fun StatusBadge(
                         .clip(CircleShape)
                         .background(statusColor)
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(spacing.compact))
             }
             Text(
                 text = stringResource(DiagnosticUiMapper.getStatusBadgeTextRes(status)),
@@ -221,7 +293,9 @@ private fun RemoteStatusCard(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val statusColor = DiagnosticUiMapper.getStatusColor(remote.status, colorScheme)
+    val spacing = MaterialTheme.spacing
+    val statusSeverity = DiagnosticUiMapper.getStatusSeverity(remote.status)
+    val statusColor = statusSeverity.asColor()
 
     Surface(
         shape = RoundedCornerShape(18.dp),
@@ -232,7 +306,7 @@ private fun RemoteStatusCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp)
+                .padding(spacing.cardPadding)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -249,7 +323,7 @@ private fun RemoteStatusCard(
                         tint = statusColor,
                         modifier = Modifier.size(24.dp)
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(spacing.semiMedium))
                     Text(
                         text = stringResource(R.string.diagnostic_remote_db),
                         style = MaterialTheme.typography.titleMedium,
@@ -261,11 +335,11 @@ private fun RemoteStatusCard(
 
                 StatusBadge(
                     status = remote.status,
-                    statusColor = statusColor
+                    severity = statusSeverity
                 )
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(spacing.mediumLarge))
 
             // Host URL
             Text(
@@ -281,7 +355,7 @@ private fun RemoteStatusCard(
                 overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(spacing.semiMedium))
 
             // Token Info & Switch Button
             Row(
@@ -299,7 +373,7 @@ private fun RemoteStatusCard(
                     Text(
                         text = "${remote.activeTokenMasked} $tokenTypeLabel",
                         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                        color = DiagnosticUiMapper.getActiveTokenColor(remote.status, colorScheme),
+                        color = DiagnosticUiMapper.getActiveTokenSeverity(remote.status).asColor(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -307,7 +381,7 @@ private fun RemoteStatusCard(
 
                 OutlinedButton(
                     onClick = onSwitchToken,
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    contentPadding = PaddingValues(horizontal = spacing.semiMedium, vertical = spacing.extraSmall),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.height(32.dp)
                 ) {
@@ -317,7 +391,7 @@ private fun RemoteStatusCard(
                         modifier = Modifier.size(14.dp),
                         tint = colorScheme.primary
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(spacing.extraSmall))
                     Text(
                         text = stringResource(R.string.diagnostic_btn_switch_token),
                         style = MaterialTheme.typography.labelSmall,
@@ -326,19 +400,19 @@ private fun RemoteStatusCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(spacing.medium))
 
             // Latency and HTTP Status
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(spacing.semiMedium)
             ) {
                 Surface(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     color = colorScheme.surface
                 ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
+                    Column(modifier = Modifier.padding(spacing.semiMedium)) {
                         Text(
                             text = stringResource(R.string.diagnostic_latency_label),
                             style = MaterialTheme.typography.labelSmall,
@@ -347,7 +421,7 @@ private fun RemoteStatusCard(
                         Text(
                             text = DiagnosticUiMapper.formatLatency(remote.latencyMs),
                             style = MaterialTheme.typography.titleMedium,
-                            color = DiagnosticUiMapper.getLatencyColor(remote.latencyMs, colorScheme)
+                            color = DiagnosticUiMapper.getLatencySeverity(remote.latencyMs).asColor()
                         )
                     }
                 }
@@ -357,7 +431,7 @@ private fun RemoteStatusCard(
                     shape = RoundedCornerShape(12.dp),
                     color = colorScheme.surface
                 ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
+                    Column(modifier = Modifier.padding(spacing.semiMedium)) {
                         Text(
                             text = stringResource(R.string.diagnostic_http_status_label),
                             style = MaterialTheme.typography.labelSmall,
@@ -366,13 +440,13 @@ private fun RemoteStatusCard(
                         Text(
                             text = DiagnosticUiMapper.formatHttpStatus(remote.httpStatusCode),
                             style = MaterialTheme.typography.titleMedium,
-                            color = DiagnosticUiMapper.getHttpStatusColor(remote.httpStatusCode, colorScheme)
+                            color = DiagnosticUiMapper.getHttpStatusSeverity(remote.httpStatusCode).asColor()
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(spacing.mediumLarge))
 
             // Tables Verified in Cloud
             Text(
@@ -380,12 +454,12 @@ private fun RemoteStatusCard(
                 style = MaterialTheme.typography.labelSmall,
                 color = colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(spacing.compact))
 
             if (remote.tablesVerified.isNotEmpty()) {
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                    verticalArrangement = Arrangement.spacedBy(spacing.compact)
                 ) {
                     remote.tablesVerified.forEach { table ->
                         Surface(
@@ -395,7 +469,7 @@ private fun RemoteStatusCard(
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = spacing.small, vertical = spacing.extraSmall)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.CheckCircle,
@@ -403,7 +477,7 @@ private fun RemoteStatusCard(
                                     tint = colorScheme.secondary,
                                     modifier = Modifier.size(12.dp)
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(spacing.extraSmall))
                                 Text(table, style = MaterialTheme.typography.labelSmall, color = colorScheme.onSurface)
                             }
                         }
@@ -418,11 +492,11 @@ private fun RemoteStatusCard(
             }
 
             if (remote.message.isNotBlank()) {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(spacing.semiMedium))
                 Text(
                     text = remote.message,
                     style = MaterialTheme.typography.bodySmall,
-                    color = DiagnosticUiMapper.getStatusMessageColor(remote.status, colorScheme)
+                    color = DiagnosticUiMapper.getStatusMessageSeverity(remote.status).asColor()
                 )
             }
         }
@@ -435,8 +509,9 @@ private fun LocalStatusCard(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val spacing = MaterialTheme.spacing
     val isHealthy = DiagnosticUiMapper.isLocalHealthy(local)
-    val localStatusColor = DiagnosticUiMapper.getLocalStatusColor(isHealthy, colorScheme)
+    val localStatusColor = DiagnosticUiMapper.getLocalStatusSeverity(isHealthy).asColor()
 
     Surface(
         shape = RoundedCornerShape(18.dp),
@@ -447,7 +522,7 @@ private fun LocalStatusCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp)
+                .padding(spacing.cardPadding)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -464,7 +539,7 @@ private fun LocalStatusCard(
                         tint = localStatusColor,
                         modifier = Modifier.size(24.dp)
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(spacing.semiMedium))
                     Text(
                         text = stringResource(R.string.diagnostic_local_db),
                         style = MaterialTheme.typography.titleMedium,
@@ -478,7 +553,7 @@ private fun LocalStatusCard(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
                         .background(localStatusColor.copy(alpha = 0.15f))
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                        .padding(horizontal = spacing.semiMedium, vertical = 5.dp)
                 ) {
                     Text(
                         text = if (isHealthy) {
@@ -492,7 +567,7 @@ private fun LocalStatusCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(spacing.medium))
 
             Text(
                 text = stringResource(R.string.diagnostic_local_file, local.databaseName),
@@ -501,7 +576,7 @@ private fun LocalStatusCard(
             )
 
             if (!isHealthy) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(spacing.small))
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = colorScheme.error.copy(alpha = 0.1f),
@@ -509,7 +584,7 @@ private fun LocalStatusCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(8.dp),
+                        modifier = Modifier.padding(spacing.small),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
@@ -518,7 +593,7 @@ private fun LocalStatusCard(
                             tint = colorScheme.error,
                             modifier = Modifier.size(16.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(spacing.small))
                         Text(
                             text = stringResource(R.string.diagnostic_local_unhealthy_desc),
                             style = MaterialTheme.typography.bodySmall,
@@ -528,12 +603,12 @@ private fun LocalStatusCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(spacing.medium))
 
             // Local metrics Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(spacing.small)
             ) {
                 LocalMetricItem(
                     title = stringResource(R.string.diagnostic_stat_transactions),
@@ -564,13 +639,15 @@ private fun LocalMetricItem(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val spacing = MaterialTheme.spacing
+
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(10.dp),
         color = colorScheme.surface
     ) {
         Column(
-            modifier = Modifier.padding(8.dp),
+            modifier = Modifier.padding(spacing.small),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -597,10 +674,11 @@ private fun DiagnosticActionButtons(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val spacing = MaterialTheme.spacing
 
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(spacing.semiMedium),
         verticalAlignment = Alignment.CenterVertically
     ) {
         OutlinedButton(
@@ -617,7 +695,7 @@ private fun DiagnosticActionButtons(
                 modifier = Modifier.size(18.dp),
                 tint = colorScheme.primary
             )
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(spacing.compact))
             Text(
                 text = stringResource(R.string.diagnostic_btn_sync),
                 maxLines = 1,
@@ -644,7 +722,7 @@ private fun DiagnosticActionButtons(
                     strokeWidth = 2.dp,
                     color = colorScheme.onPrimary
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(spacing.compact))
                 Text(
                     text = stringResource(R.string.diagnostic_btn_testing),
                     style = MaterialTheme.typography.labelMedium
@@ -655,7 +733,7 @@ private fun DiagnosticActionButtons(
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(spacing.compact))
                 Text(
                     text = stringResource(R.string.diagnostic_btn_test),
                     style = MaterialTheme.typography.labelMedium
@@ -671,6 +749,7 @@ private fun DiagnosticDataErrorContent(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val spacing = MaterialTheme.spacing
 
     Column(
         modifier = modifier,
@@ -691,7 +770,7 @@ private fun DiagnosticDataErrorContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(spacing.normal))
 
         Text(
             text = stringResource(R.string.diagnostic_data_invalid_title),
@@ -700,7 +779,7 @@ private fun DiagnosticDataErrorContent(
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(spacing.small))
 
         Text(
             text = stringResource(R.string.diagnostic_data_invalid_desc),
@@ -709,7 +788,7 @@ private fun DiagnosticDataErrorContent(
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(spacing.extraLarge))
 
         Button(
             onClick = onDismissRequest,
@@ -728,6 +807,6 @@ private fun DiagnosticDataErrorContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(spacing.normal))
     }
 }

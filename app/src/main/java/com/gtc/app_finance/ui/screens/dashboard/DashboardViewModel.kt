@@ -8,8 +8,11 @@ import com.gtc.app_finance.domain.model.FinancialSummary
 import com.gtc.app_finance.domain.model.FullDatabaseStatus
 import com.gtc.app_finance.domain.model.Transaction
 import com.gtc.app_finance.domain.model.TransactionType
+import com.gtc.app_finance.ui.components.DiagnosticUiMapper
+import com.gtc.app_finance.ui.components.DiagnosticUiState
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -28,6 +31,24 @@ class DashboardViewModel(
 
     val dbStatus: StateFlow<FullDatabaseStatus> = repository.dbStatus
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FullDatabaseStatus())
+
+    val diagnosticUiState: StateFlow<DiagnosticUiState> = repository.dbStatus
+        .map { status ->
+            if (DiagnosticUiMapper.isDataValid(status)) {
+                DiagnosticUiState.Success(status)
+            } else {
+                DiagnosticUiState.Error()
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = if (DiagnosticUiMapper.isDataValid(repository.dbStatus.value)) {
+                DiagnosticUiState.Success(repository.dbStatus.value)
+            } else {
+                DiagnosticUiState.Loading
+            }
+        )
 
     init {
         viewModelScope.launch {
