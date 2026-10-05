@@ -2,11 +2,9 @@ package com.gtc.app_finance.ui.main
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.gtc.app_finance.data.repository.FinanceRepository
 import com.gtc.app_finance.ui.components.NavTab
 import com.gtc.app_finance.ui.screens.analytics.AnalyticsScreen
 import com.gtc.app_finance.ui.screens.analytics.AnalyticsViewModel
@@ -16,11 +14,11 @@ import com.gtc.app_finance.ui.screens.dashboard.DashboardScreen
 import com.gtc.app_finance.ui.screens.dashboard.DashboardViewModel
 import com.gtc.app_finance.ui.screens.transactions.TransactionsScreen
 import com.gtc.app_finance.ui.screens.transactions.TransactionsViewModel
+import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun AppNavigation(
     navController: NavHostController,
-    repository: FinanceRepository,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -29,9 +27,7 @@ fun AppNavigation(
         modifier = modifier
     ) {
         composable(NavTab.Dashboard.route) {
-            val viewModel: DashboardViewModel = viewModel(
-                factory = SimpleViewModelFactory { DashboardViewModel(repository) }
-            )
+            val viewModel: DashboardViewModel = koinViewModel()
             DashboardScreen(
                 viewModel = viewModel,
                 onNavigateToTransactions = { navController.navigate(NavTab.Transactions.route) },
@@ -40,23 +36,17 @@ fun AppNavigation(
         }
 
         composable(NavTab.Transactions.route) {
-            val viewModel: TransactionsViewModel = viewModel(
-                factory = SimpleViewModelFactory { TransactionsViewModel(repository) }
-            )
+            val viewModel: TransactionsViewModel = koinViewModel()
             TransactionsScreen(viewModel = viewModel)
         }
 
         composable(NavTab.Credits.route) {
-            val viewModel: CreditsViewModel = viewModel(
-                factory = SimpleViewModelFactory { CreditsViewModel(repository) }
-            )
+            val viewModel: CreditsViewModel = koinViewModel()
             CreditsScreen(viewModel = viewModel)
         }
 
         composable(NavTab.Analytics.route) {
-            val viewModel: AnalyticsViewModel = viewModel(
-                factory = SimpleViewModelFactory { AnalyticsViewModel(repository) }
-            )
+            val viewModel: AnalyticsViewModel = koinViewModel()
             AnalyticsScreen(viewModel = viewModel)
         }
     }

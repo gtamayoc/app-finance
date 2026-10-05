@@ -147,20 +147,17 @@ Use the Gradle wrapper to build and test the application from the command line:
 
 ## Cloud Sync Configuration
 
-Cloud synchronization settings are defined in `app/src/main/java/com/gtc/app_finance/data/database/TursoConfig.kt`:
+Cloud synchronization settings and credentials are kept securely in `local.properties` (never committed to version control) and injected into `BuildConfig` at compile time:
 
-```kotlin
-object TursoConfig {
-    const val PRIMARY_AUTH_TOKEN = "<PRIMARY_JWT_TOKEN>"
-    const val BACKUP_AUTH_TOKEN = "<BACKUP_JWT_TOKEN>"
-
-    var TURSO_AUTH_TOKEN: String = BACKUP_AUTH_TOKEN
-    var TURSO_DB_URL: String = "https://<your-database>.aws-us-east-1.turso.io"
-}
+```properties
+# Add these to your local.properties file (see local.properties.example):
+turso.db.url=https://<your-database>.aws-us-east-1.turso.io
+turso.primary.token=<PRIMARY_JWT_TOKEN>
+turso.backup.token=<BACKUP_JWT_TOKEN>
 ```
 
 > [!NOTE]
-> `TursoSyncClient` monitors network responses. If a query receives an HTTP 401 Unauthorized response with the primary token, it automatically re-attempts the request using the backup token without disrupting user interaction.
+> `TursoConfigProvider` and `TursoSyncClient` handle failover automatically. If a query receives an HTTP 401 Unauthorized response with the primary token, it automatically re-attempts the request using the backup token without disrupting user interaction. Dependency injection is managed via Koin (`AppModules.kt`).
 
 ---
 
@@ -170,10 +167,12 @@ object TursoConfig {
 app/src/main/
 ├── AndroidManifest.xml
 ├── java/com/gtc/app_finance/
+│   ├── FinanceApplication.kt            # Application class with Koin DI setup
 │   ├── MainActivity.kt                  # Activity entry point & root Compose host
+│   ├── di/                              # Koin dependency injection modules (AppModules.kt)
 │   ├── data/
 │   │   ├── dao/                         # SQLite Data Access Objects (Transaction, Credit, Payment)
-│   │   ├── database/                    # TursoConfig, TursoDatabaseHelper, TursoSyncClient
+│   │   ├── database/                    # DatabaseConfig, TursoConfigProvider, TursoDatabaseHelper, TursoSyncClient
 │   │   ├── entity/                      # SQLite database row models
 │   │   └── repository/                  # FinanceRepository (local SQLite + remote HTTP sync)
 │   ├── domain/

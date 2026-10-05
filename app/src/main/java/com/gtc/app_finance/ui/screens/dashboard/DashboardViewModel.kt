@@ -2,7 +2,6 @@ package com.gtc.app_finance.ui.screens.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.gtc.app_finance.data.database.TursoConfig
 import com.gtc.app_finance.data.repository.FinanceRepository
 import com.gtc.app_finance.domain.model.Credit
 import com.gtc.app_finance.domain.model.FinancialSummary
@@ -55,7 +54,8 @@ class DashboardViewModel(
     }
 
     fun switchToken() {
-        TursoConfig.switchToken()
-        testDatabaseConnection()
+        viewModelScope.launch {
+            repository.switchRemoteToken()
+        }
     }
 }

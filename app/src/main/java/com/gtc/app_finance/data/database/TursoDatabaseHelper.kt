@@ -4,11 +4,15 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-class TursoDatabaseHelper(context: Context) : SQLiteOpenHelper(
+class TursoDatabaseHelper(
+    context: Context,
+    dbName: String = "finance_app.db",
+    val dbVersion: Int = 1
+) : SQLiteOpenHelper(
     context,
-    TursoConfig.DATABASE_NAME,
+    dbName,
     null,
-    TursoConfig.DATABASE_VERSION
+    dbVersion
 ) {
 
     override fun onCreate(db: SQLiteDatabase) {

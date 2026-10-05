@@ -1,0 +1,10 @@
+## Turso Cloud Database Configuration Template
+# Copy these properties into your `local.properties` file (or provide them as environment variables).
+# DO NOT commit real JWT tokens or production credentials to Version Control.
+
+sdk.dir=C\:\\Users\\<USER>\\AppData\\Local\\Android\\Sdk
+
+# Turso Cloud Database Credentials
+turso.db.url=https://<your-turso-database-slug>.turso.io
+turso.primary.token=<YOUR_PRIMARY_JWT_TOKEN>
+turso.backup.token=<YOUR_BACKUP_JWT_TOKEN>

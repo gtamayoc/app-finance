@@ -3,7 +3,7 @@ package com.gtc.app_finance.data.repository
 import com.gtc.app_finance.data.dao.CreditDao
 import com.gtc.app_finance.data.dao.PaymentDao
 import com.gtc.app_finance.data.dao.TransactionDao
-import com.gtc.app_finance.data.database.TursoConfig
+import com.gtc.app_finance.data.database.TursoConfigProvider
 import com.gtc.app_finance.data.database.TursoSyncClient
 import com.gtc.app_finance.data.entity.CreditEntity
 import com.gtc.app_finance.data.entity.PaymentEntity
@@ -30,7 +30,8 @@ class FinanceRepository(
     private val transactionDao: TransactionDao,
     private val creditDao: CreditDao,
     private val paymentDao: PaymentDao,
-    private val tursoSyncClient: TursoSyncClient = TursoSyncClient()
+    private val tursoSyncClient: TursoSyncClient,
+    private val configProvider: TursoConfigProvider
 ) {
 
     private val _transactions = MutableStateFlow<List<Transaction>>(emptyList())
@@ -78,8 +79,8 @@ class FinanceRepository(
         val pyCount = paymentDao.getCount()
 
         val localDiag = LocalDbDiagnostic(
-            databaseName = TursoConfig.DATABASE_NAME,
-            version = TursoConfig.DATABASE_VERSION,
+            databaseName = configProvider.dbName,
+            version = configProvider.dbVersion,
             transactionCount = txCount,
             creditCount = crCount,
             paymentCount = pyCount,
@@ -94,6 +95,11 @@ class FinanceRepository(
         )
         _dbStatus.value = fullStatus
         return@withContext fullStatus
+    }
+
+    suspend fun switchRemoteToken(): FullDatabaseStatus = withContext(Dispatchers.IO) {
+        tursoSyncClient.switchToken()
+        checkDatabaseHealth()
     }
 
     suspend fun syncRemoteSchema(): Boolean = withContext(Dispatchers.IO) {

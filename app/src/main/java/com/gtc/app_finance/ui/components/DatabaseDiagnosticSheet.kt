@@ -253,7 +253,7 @@ fun DatabaseDiagnosticSheet(
                         color = TextSecondary
                     )
                     Text(
-                        text = if (remote.endpointUrl.isNotBlank()) remote.endpointUrl else "https://demo-gtamayoc.aws-us-east-1.turso.io",
+                        text = remote.endpointUrl.ifBlank { "No configurado" },
                         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                         color = TextPrimary,
                         maxLines = 1,

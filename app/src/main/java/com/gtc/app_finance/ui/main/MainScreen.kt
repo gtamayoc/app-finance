@@ -10,15 +10,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.gtc.app_finance.data.repository.FinanceRepository
 import com.gtc.app_finance.ui.components.CupertinoTabBar
 import com.gtc.app_finance.ui.components.NavTab
 import com.gtc.app_finance.ui.theme.CupertinoBackground
 
 @Composable
-fun MainScreen(
-    repository: FinanceRepository
-) {
+fun MainScreen() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: NavTab.Dashboard.route
@@ -33,7 +30,6 @@ fun MainScreen(
         ) {
             AppNavigation(
                 navController = navController,
-                repository = repository,
                 modifier = Modifier.fillMaxSize()
             )
 

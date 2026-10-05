@@ -100,15 +100,18 @@ Always execute commands through the Gradle wrapper (`.\gradlew.bat` on Windows o
 app/src/main/
 ├── AndroidManifest.xml
 ├── java/com/gtc/app_finance/
+│   ├── FinanceApplication.kt            # Application class with Koin DI container setup
 │   ├── MainActivity.kt                  # Activity entry point with Compose host
+│   ├── di/                              # Dependency Injection modules (AppModules.kt)
 │   ├── data/
 │   │   ├── dao/                         # Data Access Objects for SQLite
 │   │   │   ├── CreditDao.kt
 │   │   │   ├── PaymentDao.kt
 │   │   │   └── TransactionDao.kt
 │   │   ├── database/                    # Database setup, helpers & remote sync
-│   │   │   ├── AppDatabase.kt           # Singleton database provider
-│   │   │   ├── TursoConfig.kt           # Endpoints, tokens, database config
+│   │   │   ├── AppDatabase.kt           # SQLite database wrapper
+│   │   │   ├── DatabaseConfig.kt        # Database credentials and configuration model
+│   │   │   ├── TursoConfigProvider.kt   # Dynamic token provider & failover manager
 │   │   │   ├── TursoDatabaseHelper.kt   # SQLiteOpenHelper schema & table DDL
 │   │   │   └── TursoSyncClient.kt       # Remote HTTP libSQL pipeline sync
 │   │   ├── entity/                      # Database entities (SQLite row representations)
@@ -171,7 +174,7 @@ app/src/main/
 ### Database & Turso Sync Protocol
 - **Local First**: Every write (transaction, credit, payment) is first saved to the local SQLite database via the appropriate DAO.
 - **Remote Pipeline Sync**: Following a successful local write, `FinanceRepository` dispatches the equivalent SQL statement to Turso Cloud using `TursoSyncClient.executeQuery()`.
-- **Failover / Resiliency**: `TursoSyncClient` detects HTTP 401 unauthorized errors and automatically switches between the primary and backup auth tokens configured in `TursoConfig.kt`.
+- **Failover / Resiliency**: `TursoSyncClient` detects HTTP 401 unauthorized errors and automatically switches between the primary and backup auth tokens managed dynamically by `TursoConfigProvider`.
 
 ---
 
@@ -182,6 +185,7 @@ All external dependencies and plugins are managed in `gradle/libs.versions.toml`
   - Compose BOM: `androidx.compose:compose-bom:2024.09.00`
   - Core & Lifecycle: `lifecycle-runtime-ktx:2.8.6`, `lifecycle-viewmodel-compose:2.8.6`
   - Navigation: `androidx.navigation:navigation-compose:2.8.2`
+  - Dependency Injection: `io.insert-koin:koin-android:3.5.6`, `io.insert-koin:koin-androidx-compose:3.5.6`
   - Networking: `com.squareup.okhttp3:okhttp:4.12.0`
   - JSON serialization: `com.google.code.gson:gson:2.10.1`
 - **Adding new dependencies**: Add the version and library definition to `gradle/libs.versions.toml` and reference it via `alias(libs.<name>)` in `app/build.gradle.kts`. Do not hardcode version strings in `build.gradle.kts`.

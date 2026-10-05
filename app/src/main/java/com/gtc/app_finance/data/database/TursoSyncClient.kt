@@ -18,6 +18,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class TursoSyncClient(
+    val configProvider: TursoConfigProvider,
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(12, TimeUnit.SECONDS)
         .readTimeout(12, TimeUnit.SECONDS)
@@ -26,8 +27,10 @@ class TursoSyncClient(
 ) {
     private val mediaType = "application/json; charset=utf-8".toMediaType()
 
+    fun switchToken(): String = configProvider.switchToken()
+
     private fun getEndpoint(): String {
-        val rawUrl = TursoConfig.TURSO_DB_URL.trim()
+        val rawUrl = configProvider.tursoUrl.trim()
         val formattedUrl = rawUrl.replace("^libsql://".toRegex(), "https://").removeSuffix("/")
         return if (formattedUrl.endsWith("/v2/pipeline")) formattedUrl else "$formattedUrl/v2/pipeline"
     }
@@ -38,14 +41,14 @@ class TursoSyncClient(
         val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
         val timeNow = dateFormat.format(Date())
 
-        if (TursoConfig.TURSO_DB_URL.isBlank() || TursoConfig.TURSO_DB_URL.contains("YOUR_TURSO_DB")) {
+        if (configProvider.tursoUrl.isBlank() || configProvider.tursoUrl.contains("YOUR_TURSO_DB")) {
             return@withContext RemoteDbDiagnostic(
                 status = ConnectionStatus.ERROR,
-                endpointUrl = TursoConfig.TURSO_DB_URL,
+                endpointUrl = configProvider.tursoUrl,
                 latencyMs = 0,
                 httpStatusCode = 0,
-                activeTokenMasked = TursoConfig.getMaskedToken(),
-                isBackupToken = TursoConfig.isUsingBackupToken(),
+                activeTokenMasked = configProvider.getMaskedToken(),
+                isBackupToken = configProvider.isUsingBackupToken(),
                 message = "URL de Turso no configurada",
                 tablesVerified = emptyList(),
                 lastCheckedTime = timeNow
@@ -85,16 +88,16 @@ class TursoSyncClient(
             }
         }
 
-        var activeToken = TursoConfig.TURSO_AUTH_TOKEN
+        var activeToken = configProvider.activeToken
         var (code, body) = executePing(activeToken)
 
         // Automatic token recovery if primary 401 unauthorized
-        if (code == 401 && activeToken != TursoConfig.BACKUP_AUTH_TOKEN) {
+        if (code == 401 && !configProvider.isUsingBackupToken() && configProvider.config.backupAuthToken.isNotBlank()) {
             Log.w("TursoSyncClient", "Token primario falló con 401, probando token de resguardo...")
-            val (backupCode, backupBody) = executePing(TursoConfig.BACKUP_AUTH_TOKEN)
+            val (backupCode, backupBody) = executePing(configProvider.config.backupAuthToken)
             if (backupCode == 200) {
-                TursoConfig.TURSO_AUTH_TOKEN = TursoConfig.BACKUP_AUTH_TOKEN
-                activeToken = TursoConfig.BACKUP_AUTH_TOKEN
+                configProvider.switchToBackup()
+                activeToken = configProvider.activeToken
                 code = backupCode
                 body = backupBody
             }
@@ -138,8 +141,8 @@ class TursoSyncClient(
                 endpointUrl = endpoint.removeSuffix("/v2/pipeline"),
                 latencyMs = latencyMs,
                 httpStatusCode = 200,
-                activeTokenMasked = TursoConfig.getMaskedToken(activeToken),
-                isBackupToken = TursoConfig.isUsingBackupToken(),
+                activeTokenMasked = configProvider.getMaskedToken(activeToken),
+                isBackupToken = configProvider.isUsingBackupToken(),
                 message = "Conexión activa y verificada con Turso Cloud",
                 tablesVerified = tables,
                 lastCheckedTime = timeNow
@@ -157,8 +160,8 @@ class TursoSyncClient(
                 endpointUrl = endpoint.removeSuffix("/v2/pipeline"),
                 latencyMs = latencyMs,
                 httpStatusCode = code,
-                activeTokenMasked = TursoConfig.getMaskedToken(activeToken),
-                isBackupToken = TursoConfig.isUsingBackupToken(),
+                activeTokenMasked = configProvider.getMaskedToken(activeToken),
+                isBackupToken = configProvider.isUsingBackupToken(),
                 message = friendlyMsg,
                 tablesVerified = emptyList(),
                 lastCheckedTime = timeNow
@@ -204,7 +207,7 @@ class TursoSyncClient(
     }
 
     suspend fun executeQuery(sql: String): Boolean = withContext(Dispatchers.IO) {
-        if (TursoConfig.TURSO_DB_URL.isBlank() || TursoConfig.TURSO_DB_URL.contains("YOUR_TURSO_DB")) {
+        if (configProvider.tursoUrl.isBlank() || configProvider.tursoUrl.contains("YOUR_TURSO_DB")) {
             Log.w("TursoSyncClient", "Turso DB URL not configured. Skipping remote sync.")
             return@withContext false
         }
@@ -239,13 +242,13 @@ class TursoSyncClient(
                 return client.newCall(request).execute()
             }
 
-            var resp = doCall(TursoConfig.TURSO_AUTH_TOKEN)
-            if (resp.code == 401 && TursoConfig.TURSO_AUTH_TOKEN != TursoConfig.BACKUP_AUTH_TOKEN) {
+            var resp = doCall(configProvider.activeToken)
+            if (resp.code == 401 && !configProvider.isUsingBackupToken() && configProvider.config.backupAuthToken.isNotBlank()) {
                 resp.close()
                 Log.w("TursoSyncClient", "Retrying query with backup token...")
-                resp = doCall(TursoConfig.BACKUP_AUTH_TOKEN)
+                resp = doCall(configProvider.config.backupAuthToken)
                 if (resp.isSuccessful) {
-                    TursoConfig.TURSO_AUTH_TOKEN = TursoConfig.BACKUP_AUTH_TOKEN
+                    configProvider.switchToBackup()
                 }
             }
 

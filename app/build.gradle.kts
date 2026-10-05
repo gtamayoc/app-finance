@@ -1,8 +1,28 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        FileInputStream(localPropertiesFile).use { load(it) }
+    }
+}
+
+val tursoDbUrl = localProperties.getProperty("turso.db.url")
+    ?: System.getenv("TURSO_DB_URL")
+    ?: ""
+val tursoPrimaryToken = localProperties.getProperty("turso.primary.token")
+    ?: System.getenv("TURSO_PRIMARY_TOKEN")
+    ?: ""
+val tursoBackupToken = localProperties.getProperty("turso.backup.token")
+    ?: System.getenv("TURSO_BACKUP_TOKEN")
+    ?: ""
 
 android {
     namespace = "com.gtc.app_finance"
@@ -16,6 +36,10 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "TURSO_DB_URL", "\"$tursoDbUrl\"")
+        buildConfigField("String", "TURSO_PRIMARY_TOKEN", "\"$tursoPrimaryToken\"")
+        buildConfigField("String", "TURSO_BACKUP_TOKEN", "\"$tursoBackupToken\"")
     }
 
     buildTypes {
@@ -36,6 +60,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -54,6 +79,8 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.okhttp)
     implementation(libs.gson)
+    implementation(libs.koin.android)
+    implementation(libs.koin.androidx.compose)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
