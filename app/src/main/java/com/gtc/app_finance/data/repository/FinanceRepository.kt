@@ -57,6 +57,18 @@ class FinanceRepository(
     private val _dbStatus = MutableStateFlow(FullDatabaseStatus())
     val dbStatus: StateFlow<FullDatabaseStatus> = _dbStatus.asStateFlow()
 
+    init {
+        try {
+            val txList = transactionDao.getAll().map { it.toDomain() }
+            val crList = creditDao.getAll().map { it.toDomain() }
+            _transactions.value = txList
+            _credits.value = crList
+            calculateSummary(txList, crList)
+        } catch (_: Exception) {
+            // Safe fallback during testing or before database creation
+        }
+    }
+
     suspend fun refreshData(): Unit = withContext(Dispatchers.IO) {
         purgeLegacySampleData()
         refreshLocalData()

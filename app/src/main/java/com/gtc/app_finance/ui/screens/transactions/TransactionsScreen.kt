@@ -333,14 +333,15 @@ fun TransactionRowItem(
 
                 Spacer(modifier = Modifier.width(4.dp))
 
+                val deleteInteractionSource = remember { MutableInteractionSource() }
                 IconButton(
                     onClick = onDeleteClick,
+                    interactionSource = deleteInteractionSource,
                     modifier = Modifier
                         .size(36.dp)
-                        .bounceClickable(
+                        .bouncePress(
                             minScale = 0.85f,
-                            hapticType = null, // Haptic is executed inside onDeleteClick
-                            onClick = onDeleteClick
+                            interactionSource = deleteInteractionSource
                         )
                 ) {
                     Icon(

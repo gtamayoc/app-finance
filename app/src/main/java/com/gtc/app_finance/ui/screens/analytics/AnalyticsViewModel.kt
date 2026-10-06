@@ -24,7 +24,7 @@ class AnalyticsViewModel(
 ) : ViewModel() {
 
     val summary: StateFlow<FinancialSummary> = repository.summary
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FinancialSummary())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.summary.value)
 
     private val chartColors = listOf(
         Color(0xFFFF453A),
@@ -35,11 +35,11 @@ class AnalyticsViewModel(
         Color(0xFFFFD60A)
     )
 
-    val categoryExpenses: StateFlow<List<CategoryExpense>> = repository.transactions.map { list ->
+    private fun calculateCategoryExpenses(list: List<Transaction>): List<CategoryExpense> {
         val expenses = list.filter { it.type == TransactionType.EXPENSE }
         val totalExpenseAmount = expenses.sumOf { it.amount }
 
-        if (totalExpenseAmount == 0.0) {
+        return if (totalExpenseAmount == 0.0) {
             emptyList()
         } else {
             val grouped = expenses.groupBy { it.category }
@@ -54,5 +54,13 @@ class AnalyticsViewModel(
                 )
             }.sortedByDescending { it.totalAmount }
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }
+
+    val categoryExpenses: StateFlow<List<CategoryExpense>> = repository.transactions
+        .map { calculateCategoryExpenses(it) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = calculateCategoryExpenses(repository.transactions.value)
+        )
 }

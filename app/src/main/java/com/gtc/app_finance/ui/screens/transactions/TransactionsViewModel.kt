@@ -37,7 +37,7 @@ class TransactionsViewModel(
 
             matchesQuery && matchesType
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.transactions.value)
 
     fun onSearchQueryChanged(query: String) {
         searchQuery.value = query

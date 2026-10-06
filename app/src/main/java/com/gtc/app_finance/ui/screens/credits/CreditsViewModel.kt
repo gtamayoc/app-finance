@@ -14,7 +14,7 @@ class CreditsViewModel(
 ) : ViewModel() {
 
     val credits: StateFlow<List<Credit>> = repository.credits
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.credits.value)
 
     fun addCredit(title: String, totalAmount: Double, dueDate: String) {
         viewModelScope.launch {

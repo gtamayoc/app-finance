@@ -30,6 +30,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,6 +73,8 @@ fun CupertinoTabBar(
     onTabSelected: (NavTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var activeRoute by remember(currentRoute) { mutableStateOf(currentRoute) }
+
     val primaryColor = MaterialTheme.colorScheme.primary
     val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
     val surfaceColor = MaterialTheme.colorScheme.surface
@@ -94,18 +99,18 @@ fun CupertinoTabBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             navTabs.forEach { tab ->
-                val isSelected = currentRoute == tab.route
+                val isSelected = activeRoute == tab.route
                 val tabTitle = stringResource(tab.labelRes)
 
                 val backgroundColor by animateColorAsState(
                     targetValue = if (isSelected) primaryColor.copy(alpha = 0.18f) else Color.Transparent,
-                    animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+                    animationSpec = tween(durationMillis = 140, easing = FastOutSlowInEasing),
                     label = "tabBg"
                 )
 
                 val contentColor by animateColorAsState(
                     targetValue = if (isSelected) primaryColor else unselectedColor,
-                    animationSpec = tween(durationMillis = 280),
+                    animationSpec = tween(durationMillis = 140),
                     label = "tabContent"
                 )
 
@@ -115,10 +120,11 @@ fun CupertinoTabBar(
                         .clip(RoundedCornerShape(22.dp))
                         .background(backgroundColor)
                         .bounceClickable(
-                            minScale = 0.92f,
+                            minScale = 0.94f,
                             hapticType = if (isSelected) null else TouchHapticType.TICK,
                             onClick = {
-                                if (!isSelected) {
+                                if (activeRoute != tab.route) {
+                                    activeRoute = tab.route
                                     onTabSelected(tab)
                                 }
                             }
@@ -139,8 +145,8 @@ fun CupertinoTabBar(
 
                         AnimatedVisibility(
                             visible = isSelected,
-                            enter = fadeIn(animationSpec = tween(220)) + expandHorizontally(animationSpec = tween(220)),
-                            exit = fadeOut(animationSpec = tween(180)) + shrinkHorizontally(animationSpec = tween(180))
+                            enter = fadeIn(animationSpec = tween(140)) + expandHorizontally(animationSpec = tween(140)),
+                            exit = fadeOut(animationSpec = tween(100)) + shrinkHorizontally(animationSpec = tween(100))
                         ) {
                             Text(
                                 text = tabTitle,

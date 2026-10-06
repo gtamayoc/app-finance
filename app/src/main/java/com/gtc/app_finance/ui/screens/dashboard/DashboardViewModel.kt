@@ -23,16 +23,16 @@ class DashboardViewModel(
 ) : ViewModel() {
 
     val summary: StateFlow<FinancialSummary> = repository.summary
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FinancialSummary())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.summary.value)
 
     val recentTransactions: StateFlow<List<Transaction>> = repository.transactions
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.transactions.value)
 
     val credits: StateFlow<List<Credit>> = repository.credits
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.credits.value)
 
     val dbStatus: StateFlow<FullDatabaseStatus> = repository.dbStatus
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FullDatabaseStatus())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.dbStatus.value)
 
     val diagnosticUiState: StateFlow<DiagnosticUiState> = repository.dbStatus
         .map { status ->

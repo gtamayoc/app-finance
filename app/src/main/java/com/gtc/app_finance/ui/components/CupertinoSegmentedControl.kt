@@ -47,8 +47,8 @@ fun CupertinoSegmentedControl(
         val indicatorOffset by animateDpAsState(
             targetValue = segmentWidth * selectedIndex.coerceIn(0, items.size - 1),
             animationSpec = spring(
-                dampingRatio = Spring.DampingRatioLowBouncy,
-                stiffness = Spring.StiffnessMediumLow
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMedium
             ),
             label = "pillIndicatorOffset"
         )
