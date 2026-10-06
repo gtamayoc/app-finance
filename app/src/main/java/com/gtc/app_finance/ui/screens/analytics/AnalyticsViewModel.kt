@@ -7,11 +7,13 @@ import com.gtc.app_finance.domain.model.FinancialSummary
 import com.gtc.app_finance.domain.model.Transaction
 import com.gtc.app_finance.domain.model.TransactionType
 import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.Immutable
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
+@Immutable
 data class CategoryExpense(
     val category: String,
     val totalAmount: Double,

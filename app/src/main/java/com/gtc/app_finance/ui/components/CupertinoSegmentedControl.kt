@@ -1,18 +1,16 @@
 package com.gtc.app_finance.ui.components
 
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.gtc.app_finance.ui.utils.TouchHapticType
@@ -35,7 +34,16 @@ fun CupertinoSegmentedControl(
 ) {
     if (items.isEmpty()) return
 
-    BoxWithConstraints(
+    val animatedIndex by animateFloatAsState(
+        targetValue = selectedIndex.coerceIn(0, items.size - 1).toFloat(),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "pillIndicatorIndex"
+    )
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .height(44.dp)
@@ -43,29 +51,21 @@ fun CupertinoSegmentedControl(
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
             .padding(4.dp)
     ) {
-        val segmentWidth = maxWidth / items.size
-        val indicatorOffset by animateDpAsState(
-            targetValue = segmentWidth * selectedIndex.coerceIn(0, items.size - 1),
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessMedium
-            ),
-            label = "pillIndicatorOffset"
-        )
-
-        // Physical sliding pill indicator with spring physics
+        // Physical sliding pill indicator running strictly on GPU graphicsLayer (0 recompositions per frame)
         Box(
             modifier = Modifier
-                .offset(x = indicatorOffset)
-                .width(segmentWidth)
+                .fillMaxWidth(1f / items.size)
                 .fillMaxHeight()
+                .graphicsLayer {
+                    translationX = animatedIndex * size.width
+                }
                 .clip(RoundedCornerShape(8.dp))
                 .background(MaterialTheme.colorScheme.primary)
         )
 
         // Touch-interactive segment labels with tactile bounce and tick haptics
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             items.forEachIndexed { index, title ->

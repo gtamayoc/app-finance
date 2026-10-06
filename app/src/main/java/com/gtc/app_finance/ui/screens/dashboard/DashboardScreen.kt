@@ -94,6 +94,7 @@ fun DashboardScreen(
     val credits by viewModel.credits.collectAsStateWithLifecycle()
     val dbStatus by viewModel.dbStatus.collectAsStateWithLifecycle()
     val diagnosticUiState by viewModel.diagnosticUiState.collectAsStateWithLifecycle()
+    val recentTransactionsList = remember(transactions) { transactions.take(4) }
 
     var showAddSheet by remember { mutableStateOf(false) }
     var showDbSheet by remember { mutableStateOf(false) }
@@ -526,8 +527,7 @@ fun DashboardScreen(
             }
 
             // Recent Transactions List
-            val recentList = transactions.take(4)
-            if (recentList.isEmpty()) {
+            if (recentTransactionsList.isEmpty()) {
                 item {
                     Text(
                         text = stringResource(R.string.dashboard_no_movements),
@@ -538,7 +538,7 @@ fun DashboardScreen(
                 }
             } else {
                 items(
-                    items = recentList,
+                    items = recentTransactionsList,
                     key = { it.id },
                     contentType = { "transaction" }
                 ) { tx ->

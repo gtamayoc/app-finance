@@ -78,11 +78,12 @@ fun TransactionsScreen(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val fabInteractionSource = remember { MutableInteractionSource() }
 
-    val filterOptions = listOf(
-        stringResource(R.string.transactions_filter_all),
-        stringResource(R.string.transactions_filter_income),
-        stringResource(R.string.transactions_filter_expense)
-    )
+    val filterAll = stringResource(R.string.transactions_filter_all)
+    val filterIncome = stringResource(R.string.transactions_filter_income)
+    val filterExpense = stringResource(R.string.transactions_filter_expense)
+    val filterOptions = remember(filterAll, filterIncome, filterExpense) {
+        listOf(filterAll, filterIncome, filterExpense)
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -187,35 +188,11 @@ fun TransactionsScreen(
                         key = { it.id },
                         contentType = { "transaction" }
                     ) { transaction ->
-                        val dismissState = rememberSwipeToDismissBoxState(
-                            confirmValueChange = { dismissValue ->
-                                if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
-                                    feedback.perform(TouchHapticType.HEAVY)
-                                    viewModel.deleteTransaction(transaction.id)
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        )
-
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            enableDismissFromStartToEnd = false,
-                            enableDismissFromEndToStart = true,
-                            backgroundContent = {
-                                DismissBackground(dismissState = dismissState)
-                            },
+                        TransactionDismissibleRow(
+                            transaction = transaction,
+                            onDelete = viewModel::deleteTransaction,
                             modifier = Modifier.animateItem()
-                        ) {
-                            TransactionRowItem(
-                                transaction = transaction,
-                                onDeleteClick = {
-                                    feedback.perform(TouchHapticType.HEAVY)
-                                    viewModel.deleteTransaction(transaction.id)
-                                }
-                            )
-                        }
+                        )
                     }
                 }
             }
@@ -229,6 +206,45 @@ fun TransactionsScreen(
             onSaveTransaction = { title, amount, type, category ->
                 viewModel.addTransaction(title, amount, type, category)
                 showAddSheet = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TransactionDismissibleRow(
+    transaction: Transaction,
+    onDelete: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val feedback = rememberTouchFeedback()
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                feedback.perform(TouchHapticType.HEAVY)
+                onDelete(transaction.id)
+                true
+            } else {
+                false
+            }
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true,
+        backgroundContent = {
+            DismissBackground(dismissState = dismissState)
+        },
+        modifier = modifier
+    ) {
+        TransactionRowItem(
+            transaction = transaction,
+            onDeleteClick = {
+                feedback.perform(TouchHapticType.HEAVY)
+                onDelete(transaction.id)
             }
         )
     }

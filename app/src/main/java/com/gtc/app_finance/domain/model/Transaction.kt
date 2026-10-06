@@ -1,9 +1,12 @@
 package com.gtc.app_finance.domain.model
 
+import androidx.compose.runtime.Immutable
+
 enum class TransactionType {
     INCOME, EXPENSE
 }
 
+@Immutable
 data class Transaction(
     val id: String,
     val title: String,
@@ -12,3 +15,4 @@ data class Transaction(
     val category: String,
     val date: String
 )
+

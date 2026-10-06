@@ -1,5 +1,7 @@
 package com.gtc.app_finance.domain.model
 
+import androidx.compose.runtime.Immutable
+
 enum class ConnectionStatus {
     NOT_CHECKED,
     CONNECTING,
@@ -7,6 +9,7 @@ enum class ConnectionStatus {
     ERROR
 }
 
+@Immutable
 data class RemoteDbDiagnostic(
     val status: ConnectionStatus = ConnectionStatus.NOT_CHECKED,
     val endpointUrl: String = "",
@@ -19,6 +22,7 @@ data class RemoteDbDiagnostic(
     val lastCheckedTime: String = ""
 )
 
+@Immutable
 data class LocalDbDiagnostic(
     val databaseName: String = "finance_app.db",
     val version: Int = 1,
@@ -28,7 +32,9 @@ data class LocalDbDiagnostic(
     val isHealthy: Boolean = true
 )
 
+@Immutable
 data class FullDatabaseStatus(
     val local: LocalDbDiagnostic = LocalDbDiagnostic(),
     val remote: RemoteDbDiagnostic = RemoteDbDiagnostic()
 )
+

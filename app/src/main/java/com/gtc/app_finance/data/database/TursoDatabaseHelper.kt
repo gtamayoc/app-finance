@@ -94,5 +94,6 @@ class TursoDatabaseHelper(
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
         db.setForeignKeyConstraintsEnabled(true)
+        db.enableWriteAheadLogging()
     }
 }

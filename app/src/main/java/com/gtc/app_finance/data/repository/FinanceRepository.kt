@@ -19,7 +19,9 @@ import com.gtc.app_finance.domain.model.LocalDbDiagnostic
 import com.gtc.app_finance.domain.model.Payment
 import com.gtc.app_finance.domain.model.Transaction
 import com.gtc.app_finance.domain.model.TransactionType
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -58,14 +60,12 @@ class FinanceRepository(
     val dbStatus: StateFlow<FullDatabaseStatus> = _dbStatus.asStateFlow()
 
     init {
-        try {
-            val txList = transactionDao.getAll().map { it.toDomain() }
-            val crList = creditDao.getAll().map { it.toDomain() }
-            _transactions.value = txList
-            _credits.value = crList
-            calculateSummary(txList, crList)
-        } catch (_: Exception) {
-            // Safe fallback during testing or before database creation
+        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+            try {
+                refreshLocalData()
+            } catch (_: Exception) {
+                // Safe fallback during testing or before database creation
+            }
         }
     }
 
