@@ -27,21 +27,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gtc.app_finance.R
 import com.gtc.app_finance.ui.components.CupertinoCard
-import com.gtc.app_finance.ui.theme.CupertinoBackground
-import com.gtc.app_finance.ui.theme.EmeraldGreen
-import com.gtc.app_finance.ui.theme.IndigoBlue
-import com.gtc.app_finance.ui.theme.SoftCoral
-import com.gtc.app_finance.ui.theme.TextPrimary
-import com.gtc.app_finance.ui.theme.TextSecondary
 import com.gtc.app_finance.ui.utils.CurrencyFormatter
 
 @Composable
@@ -51,8 +46,12 @@ fun AnalyticsScreen(
     val summary by viewModel.summary.collectAsState()
     val categoryExpenses by viewModel.categoryExpenses.collectAsState()
 
+    val incomeColor = MaterialTheme.colorScheme.secondary
+    val expenseColor = MaterialTheme.colorScheme.tertiary
+    val trackBgColor = MaterialTheme.colorScheme.surfaceVariant
+
     Scaffold(
-        containerColor = CupertinoBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -63,14 +62,14 @@ fun AnalyticsScreen(
         ) {
             item {
                 Text(
-                    text = "Analítica Financiera",
+                    text = stringResource(R.string.analytics_title),
                     style = MaterialTheme.typography.headlineLarge,
-                    color = TextPrimary
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
-                    text = "Distribución de gastos por categoría",
+                    text = stringResource(R.string.analytics_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -82,9 +81,9 @@ fun AnalyticsScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "Gastos por Categoría",
+                            text = stringResource(R.string.analytics_expenses_by_category),
                             style = MaterialTheme.typography.titleMedium,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
 
                         Spacer(modifier = Modifier.height(20.dp))
@@ -96,7 +95,10 @@ fun AnalyticsScreen(
                                     .fillMaxWidth(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("No hay datos de gastos registrados", color = TextSecondary)
+                                Text(
+                                    text = stringResource(R.string.analytics_no_expenses),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         } else {
                             Box(
@@ -124,9 +126,9 @@ fun AnalyticsScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
-                                        text = "Total Gastos",
+                                        text = stringResource(R.string.analytics_total_expenses),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = TextSecondary,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -136,7 +138,7 @@ fun AnalyticsScreen(
                                             fontSize = 17.sp,
                                             fontWeight = FontWeight.Bold
                                         ),
-                                        color = SoftCoral,
+                                        color = expenseColor,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -152,9 +154,9 @@ fun AnalyticsScreen(
                 CupertinoCard {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = "Ingresos vs Gastos",
+                            text = stringResource(R.string.analytics_income_vs_expense),
                             style = MaterialTheme.typography.titleMedium,
-                            color = TextPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -174,9 +176,9 @@ fun AnalyticsScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "Ingresos",
+                                        text = stringResource(R.string.dashboard_income),
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = TextSecondary,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.weight(1f, fill = false),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -185,7 +187,7 @@ fun AnalyticsScreen(
                                     Text(
                                         text = CurrencyFormatter.formatPesos(summary.totalIncome),
                                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                        color = EmeraldGreen,
+                                        color = incomeColor,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -196,14 +198,14 @@ fun AnalyticsScreen(
                                         .fillMaxWidth()
                                         .height(12.dp)
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(CupertinoBackground)
+                                        .background(trackBgColor)
                                 ) {
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth(incomeRatio.coerceIn(0.02f, 1f))
                                             .height(12.dp)
                                             .clip(RoundedCornerShape(6.dp))
-                                            .background(EmeraldGreen)
+                                            .background(incomeColor)
                                     )
                                 }
                             }
@@ -216,9 +218,9 @@ fun AnalyticsScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "Gastos",
+                                        text = stringResource(R.string.dashboard_expense),
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = TextSecondary,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.weight(1f, fill = false),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -227,7 +229,7 @@ fun AnalyticsScreen(
                                     Text(
                                         text = CurrencyFormatter.formatPesos(summary.totalExpense),
                                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                        color = SoftCoral,
+                                        color = expenseColor,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -238,14 +240,14 @@ fun AnalyticsScreen(
                                         .fillMaxWidth()
                                         .height(12.dp)
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(CupertinoBackground)
+                                        .background(trackBgColor)
                                 ) {
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth(expenseRatio.coerceIn(0.02f, 1f))
                                             .height(12.dp)
                                             .clip(RoundedCornerShape(6.dp))
-                                            .background(SoftCoral)
+                                            .background(expenseColor)
                                     )
                                 }
                             }
@@ -257,15 +259,15 @@ fun AnalyticsScreen(
             // Breakdown List per Category
             item {
                 Text(
-                    text = "Detalle de Gastos por Categoría",
+                    text = stringResource(R.string.analytics_detailed_breakdown),
                     style = MaterialTheme.typography.titleLarge,
-                    color = TextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            items(categoryExpenses) { cat ->
+            items(categoryExpenses, key = { it.category }) { cat ->
                 CupertinoCard(elevation = 2.dp) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -287,14 +289,14 @@ fun AnalyticsScreen(
                                 Text(
                                     text = cat.category,
                                     style = MaterialTheme.typography.titleMedium,
-                                    color = TextPrimary,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = "${(cat.percentage * 100).toInt()}% del total de gastos",
+                                    text = "${(cat.percentage * 100).toInt()}% del total",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = TextSecondary,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -306,7 +308,7 @@ fun AnalyticsScreen(
                         Text(
                             text = CurrencyFormatter.formatPesos(cat.totalAmount),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = TextPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )

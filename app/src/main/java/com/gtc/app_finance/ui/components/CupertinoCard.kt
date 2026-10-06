@@ -11,11 +11,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.gtc.app_finance.ui.theme.BorderColor
 import com.gtc.app_finance.ui.theme.CupertinoCardShape
-import com.gtc.app_finance.ui.theme.CupertinoSurface
 
 @Composable
 fun CupertinoCard(
@@ -25,16 +25,24 @@ fun CupertinoCard(
     elevation: Dp = 4.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
+    val containerColor = MaterialTheme.colorScheme.surface
+    val contentColor = MaterialTheme.colorScheme.onSurface
+    val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+
     if (onClick != null) {
         Card(
-            onClick = onClick,
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            },
             modifier = modifier.fillMaxWidth(),
             shape = shape,
             colors = CardDefaults.cardColors(
-                containerColor = CupertinoSurface,
-                contentColor = MaterialTheme.colorScheme.onSurface
+                containerColor = containerColor,
+                contentColor = contentColor
             ),
-            border = BorderStroke(1.dp, BorderColor),
+            border = BorderStroke(1.dp, borderColor),
             elevation = CardDefaults.cardElevation(defaultElevation = elevation)
         ) {
             Column(modifier = Modifier.padding(16.dp), content = content)
@@ -44,10 +52,10 @@ fun CupertinoCard(
             modifier = modifier.fillMaxWidth(),
             shape = shape,
             colors = CardDefaults.cardColors(
-                containerColor = CupertinoSurface,
-                contentColor = MaterialTheme.colorScheme.onSurface
+                containerColor = containerColor,
+                contentColor = contentColor
             ),
-            border = BorderStroke(1.dp, BorderColor),
+            border = BorderStroke(1.dp, borderColor),
             elevation = CardDefaults.cardElevation(defaultElevation = elevation)
         ) {
             Column(modifier = Modifier.padding(16.dp), content = content)

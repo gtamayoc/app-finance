@@ -44,6 +44,7 @@ fun AddCreditSheet(
     var title by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
     var dueDate by remember { mutableStateOf("2026-12-31") }
+    var isSaving by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -135,10 +136,12 @@ fun AddCreditSheet(
 
                 Button(
                     onClick = {
+                        if (isSaving) return@Button
+                        isSaving = true
                         val amount = parsedAmount ?: 0.0
                         onSaveCredit(title.trim(), amount, dueDate.ifBlank { "2026-12-31" })
                     },
-                    enabled = isValid,
+                    enabled = isValid && !isSaving,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(

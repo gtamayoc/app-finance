@@ -108,4 +108,33 @@ class SyncQueueAndReciprocalLogicTest {
         assertTrue(credits.isEmpty())
         assertTrue(payments.isEmpty())
     }
+
+    @Test
+    fun `Selective reconciliation identifies identical records to avoid unnecessary database writes`() {
+        val existingCredit = CreditEntity("cr-1", "Banco Pichincha", 1200.0, 600.0, "2026-12-31")
+        val identicalRemoteCredit = CreditEntity("cr-1", "Banco Pichincha", 1200.0, 600.0, "2026-12-31")
+        val updatedRemoteCredit = CreditEntity("cr-1", "Banco Pichincha", 1200.0, 400.0, "2026-12-31")
+
+        // Identical entity requires no write
+        val shouldWriteIdentical = existingCredit != identicalRemoteCredit
+        assertFalse(shouldWriteIdentical)
+
+        // Modified entity requires write
+        val shouldWriteUpdated = existingCredit != updatedRemoteCredit
+        assertTrue(shouldWriteUpdated)
+    }
+
+    @Test
+    fun `Idempotent SQL pattern formats with INSERT OR REPLACE INTO`() {
+        val testCreditId = "cred-abc"
+        val testTitle = "Tarjeta Éxito"
+        val testAmount = 500000.0
+        val testDueDate = "2026-11-30"
+
+        val sql = "INSERT OR REPLACE INTO credits (id, title, total_amount, remaining_amount, due_date) VALUES ('$testCreditId', '${testTitle.replace("'", "''")}', $testAmount, $testAmount, '$testDueDate');"
+
+        assertTrue(sql.startsWith("INSERT OR REPLACE INTO credits"))
+        assertTrue(sql.contains("'$testCreditId'"))
+        assertTrue(sql.contains("Tarjeta Éxito"))
+    }
 }

@@ -1,8 +1,14 @@
 package com.gtc.app_finance.ui.components
 
+import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
@@ -34,20 +39,25 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.gtc.app_finance.ui.theme.BorderColor
-import com.gtc.app_finance.ui.theme.CupertinoSurface
-import com.gtc.app_finance.ui.theme.IndigoBlue
-import com.gtc.app_finance.ui.theme.TextPrimary
-import com.gtc.app_finance.ui.theme.TextSecondary
+import com.gtc.app_finance.R
 
-sealed class NavTab(val route: String, val title: String, val icon: ImageVector) {
-    object Dashboard : NavTab("dashboard", "Inicio", Icons.Default.AccountBalanceWallet)
-    object Transactions : NavTab("transactions", "Movimientos", Icons.AutoMirrored.Filled.ReceiptLong)
-    object Credits : NavTab("credits", "Créditos", Icons.Default.CreditCard)
-    object Analytics : NavTab("analytics", "Analítica", Icons.Default.PieChart)
+sealed class NavTab(
+    val route: String,
+    @StringRes val labelRes: Int,
+    val icon: ImageVector,
+    val title: String
+) {
+    object Dashboard : NavTab("dashboard", R.string.tab_dashboard, Icons.Default.AccountBalanceWallet, "Inicio")
+    object Transactions : NavTab("transactions", R.string.tab_transactions, Icons.AutoMirrored.Filled.ReceiptLong, "Movimientos")
+    object Credits : NavTab("credits", R.string.tab_credits, Icons.Default.CreditCard, "Créditos")
+    object Analytics : NavTab("analytics", R.string.tab_analytics, Icons.Default.PieChart, "Analítica")
 }
 
 val navTabs = listOf(
@@ -63,14 +73,20 @@ fun CupertinoTabBar(
     onTabSelected: (NavTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val outlineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .shadow(16.dp, RoundedCornerShape(32.dp))
-            .border(1.dp, BorderColor, RoundedCornerShape(32.dp)),
+            .border(1.dp, outlineColor, RoundedCornerShape(32.dp)),
         shape = RoundedCornerShape(32.dp),
-        color = CupertinoSurface,
+        color = surfaceColor,
         tonalElevation = 8.dp
     ) {
         Row(
@@ -83,16 +99,17 @@ fun CupertinoTabBar(
         ) {
             navTabs.forEach { tab ->
                 val isSelected = currentRoute == tab.route
+                val tabTitle = stringResource(tab.labelRes)
 
                 val backgroundColor by animateColorAsState(
-                    targetValue = if (isSelected) IndigoBlue.copy(alpha = 0.2f) else Color.Transparent,
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+                    targetValue = if (isSelected) primaryColor.copy(alpha = 0.18f) else Color.Transparent,
+                    animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
                     label = "tabBg"
                 )
 
                 val contentColor by animateColorAsState(
-                    targetValue = if (isSelected) IndigoBlue else TextSecondary,
-                    animationSpec = tween(durationMillis = 300),
+                    targetValue = if (isSelected) primaryColor else unselectedColor,
+                    animationSpec = tween(durationMillis = 280),
                     label = "tabContent"
                 )
 
@@ -104,9 +121,14 @@ fun CupertinoTabBar(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                            onClick = { onTabSelected(tab) }
+                            onClick = {
+                                if (!isSelected) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onTabSelected(tab)
+                                }
+                            }
                         )
-                        .padding(horizontal = 10.dp),
+                        .padding(horizontal = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
@@ -115,16 +137,22 @@ fun CupertinoTabBar(
                     ) {
                         Icon(
                             imageVector = tab.icon,
-                            contentDescription = tab.title,
+                            contentDescription = tabTitle,
                             tint = contentColor,
                             modifier = Modifier.size(20.dp)
                         )
-                        if (isSelected) {
+
+                        AnimatedVisibility(
+                            visible = isSelected,
+                            enter = fadeIn(animationSpec = tween(220)) + expandHorizontally(animationSpec = tween(220)),
+                            exit = fadeOut(animationSpec = tween(180)) + shrinkHorizontally(animationSpec = tween(180))
+                        ) {
                             Text(
-                                text = tab.title,
-                                color = TextPrimary,
+                                text = tabTitle,
+                                color = primaryColor,
                                 style = MaterialTheme.typography.labelMedium.copy(
-                                    fontSize = 12.sp
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
                                 ),
                                 maxLines = 1,
                                 softWrap = false,

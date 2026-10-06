@@ -14,10 +14,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class DashboardViewModel(
-    private val repository: FinanceRepository
+    private val repository: FinanceRepository,
+    private val enableAutoSync: Boolean = true
 ) : ViewModel() {
 
     val summary: StateFlow<FinancialSummary> = repository.summary
@@ -53,10 +55,11 @@ class DashboardViewModel(
     init {
         viewModelScope.launch {
             repository.refreshData()
-            // Auto-sync ticker in background every 30 seconds
-            while (true) {
-                kotlinx.coroutines.delay(30_000)
-                repository.syncData()
+            if (enableAutoSync) {
+                while (isActive) {
+                    kotlinx.coroutines.delay(30_000)
+                    repository.syncData()
+                }
             }
         }
     }

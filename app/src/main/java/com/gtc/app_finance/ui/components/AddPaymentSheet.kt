@@ -45,6 +45,7 @@ fun AddPaymentSheet(
     onSavePayment: (creditId: String, amount: Double) -> Unit
 ) {
     var amountText by remember { mutableStateOf("") }
+    var isSaving by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -116,10 +117,12 @@ fun AddPaymentSheet(
 
                 Button(
                     onClick = {
+                        if (isSaving) return@Button
+                        isSaving = true
                         val amount = parsedAmount ?: 0.0
                         onSavePayment(credit.id, amount)
                     },
-                    enabled = isValid,
+                    enabled = isValid && !isSaving,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(

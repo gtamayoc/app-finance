@@ -1,5 +1,8 @@
 package com.gtc.app_finance.ui.screens.credits
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,21 +32,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.gtc.app_finance.R
 import com.gtc.app_finance.domain.model.Credit
 import com.gtc.app_finance.ui.components.AddCreditSheet
 import com.gtc.app_finance.ui.components.AddPaymentSheet
 import com.gtc.app_finance.ui.components.CreditCardItem
-import com.gtc.app_finance.ui.theme.CupertinoBackground
-import com.gtc.app_finance.ui.theme.IndigoBlue
-import com.gtc.app_finance.ui.theme.TextPrimary
-import com.gtc.app_finance.ui.theme.TextSecondary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreditsScreen(
     viewModel: CreditsViewModel
 ) {
+    val haptic = LocalHapticFeedback.current
     val credits by viewModel.credits.collectAsState()
 
     var showAddCreditSheet by remember { mutableStateOf(false) }
@@ -53,16 +57,22 @@ fun CreditsScreen(
     val addPaymentSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     Scaffold(
-        containerColor = CupertinoBackground,
+        containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showAddCreditSheet = true },
-                containerColor = IndigoBlue,
-                contentColor = TextPrimary,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    showAddCreditSheet = true
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape,
                 modifier = Modifier.padding(bottom = 70.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Nuevo Crédito")
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = stringResource(R.string.credits_fab_new)
+                )
             }
         }
     ) { innerPadding ->
@@ -73,43 +83,58 @@ fun CreditsScreen(
                 .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
             Text(
-                text = "Gestión de Créditos",
+                text = stringResource(R.string.credits_title),
                 style = MaterialTheme.typography.headlineLarge,
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                text = "Control de deudas y abonos en tiempo real",
+                text = stringResource(R.string.credits_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            if (credits.isEmpty()) {
+            AnimatedVisibility(
+                visible = credits.isEmpty(),
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
+                        .padding(top = 40.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No tienes créditos registrados",
+                        text = stringResource(R.string.credits_empty),
                         style = MaterialTheme.typography.bodyLarge,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            } else {
+            }
+
+            AnimatedVisibility(
+                visible = credits.isNotEmpty(),
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     contentPadding = PaddingValues(bottom = 90.dp)
                 ) {
-                    items(credits, key = { it.id }) { credit ->
+                    items(
+                        items = credits,
+                        key = { it.id },
+                        contentType = { "credit" }
+                    ) { credit ->
                         CreditCardItem(
                             credit = credit,
-                            onAddPaymentClick = { selectedCreditForPayment = it }
+                            onAddPaymentClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selectedCreditForPayment = it
+                            }
                         )
                     }
                 }

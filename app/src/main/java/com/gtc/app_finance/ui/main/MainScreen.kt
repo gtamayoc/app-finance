@@ -3,6 +3,7 @@ package com.gtc.app_finance.ui.main
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -12,7 +13,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.gtc.app_finance.ui.components.CupertinoTabBar
 import com.gtc.app_finance.ui.components.NavTab
-import com.gtc.app_finance.ui.theme.CupertinoBackground
 
 @Composable
 fun MainScreen() {
@@ -21,7 +21,7 @@ fun MainScreen() {
     val currentRoute = navBackStackEntry?.destination?.route ?: NavTab.Dashboard.route
 
     Scaffold(
-        containerColor = CupertinoBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Box(
             modifier = Modifier

@@ -81,6 +81,11 @@ class PaymentDao(private val dbHelper: TursoDatabaseHelper) {
         return rows > 0
     }
 
+    fun deleteByCreditId(creditId: String): Int {
+        val db = dbHelper.writableDatabase
+        return db.delete("payments", "credit_id = ?", arrayOf(creditId))
+    }
+
     fun deleteAll(): Int {
         val db = dbHelper.writableDatabase
         return db.delete("payments", null, null)

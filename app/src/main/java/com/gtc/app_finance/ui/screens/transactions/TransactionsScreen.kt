@@ -1,5 +1,8 @@
 package com.gtc.app_finance.ui.screens.transactions
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,20 +45,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.gtc.app_finance.R
 import com.gtc.app_finance.domain.model.Transaction
 import com.gtc.app_finance.domain.model.TransactionType
 import com.gtc.app_finance.ui.components.AddTransactionSheet
 import com.gtc.app_finance.ui.components.CupertinoCard
 import com.gtc.app_finance.ui.components.CupertinoSegmentedControl
-import com.gtc.app_finance.ui.theme.CupertinoBackground
-import com.gtc.app_finance.ui.theme.EmeraldGreen
-import com.gtc.app_finance.ui.theme.IndigoBlue
-import com.gtc.app_finance.ui.theme.SoftCoral
-import com.gtc.app_finance.ui.theme.TextPrimary
-import com.gtc.app_finance.ui.theme.TextSecondary
 import com.gtc.app_finance.ui.utils.CurrencyFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,6 +64,7 @@ import com.gtc.app_finance.ui.utils.CurrencyFormatter
 fun TransactionsScreen(
     viewModel: TransactionsViewModel
 ) {
+    val haptic = LocalHapticFeedback.current
     val searchQuery by viewModel.searchQuery.collectAsState()
     val filterIndex by viewModel.filterTypeIndex.collectAsState()
     val transactions by viewModel.filteredTransactions.collectAsState()
@@ -70,17 +72,29 @@ fun TransactionsScreen(
     var showAddSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    val filterOptions = listOf(
+        stringResource(R.string.transactions_filter_all),
+        stringResource(R.string.transactions_filter_income),
+        stringResource(R.string.transactions_filter_expense)
+    )
+
     Scaffold(
-        containerColor = CupertinoBackground,
+        containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showAddSheet = true },
-                containerColor = IndigoBlue,
-                contentColor = TextPrimary,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    showAddSheet = true
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape,
                 modifier = Modifier.padding(bottom = 70.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Nuevo Movimiento")
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = stringResource(R.string.transactions_fab_new)
+                )
             }
         }
     ) { innerPadding ->
@@ -91,9 +105,9 @@ fun TransactionsScreen(
                 .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
             Text(
-                text = "Historial de Movimientos",
+                text = stringResource(R.string.transactions_title),
                 style = MaterialTheme.typography.headlineLarge,
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onBackground
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -102,21 +116,26 @@ fun TransactionsScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.onSearchQueryChanged(it) },
-                placeholder = { Text("Buscar por título o categoría...", color = TextSecondary) },
+                placeholder = {
+                    Text(
+                        stringResource(R.string.transactions_search_placeholder),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Search,
-                        contentDescription = "Buscar",
-                        tint = TextSecondary
+                        contentDescription = stringResource(R.string.transactions_search_desc),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary,
-                    focusedBorderColor = IndigoBlue,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline
                 )
             )
@@ -125,39 +144,57 @@ fun TransactionsScreen(
 
             // Filter Segmented Control (Todos | Ingresos | Gastos)
             CupertinoSegmentedControl(
-                items = listOf("Todos", "Ingresos", "Gastos"),
+                items = filterOptions,
                 selectedIndex = filterIndex,
-                onOptionSelected = { viewModel.onFilterSelected(it) }
+                onOptionSelected = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    viewModel.onFilterSelected(it)
+                }
             )
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // List of Transactions
-            if (transactions.isEmpty()) {
+            // List of Transactions with smooth animated state transitions
+            AnimatedVisibility(
+                visible = transactions.isEmpty(),
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
+                        .padding(top = 40.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No se encontraron movimientos",
+                        text = stringResource(R.string.transactions_empty),
                         style = MaterialTheme.typography.bodyLarge,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            } else {
+            }
+
+            AnimatedVisibility(
+                visible = transactions.isNotEmpty(),
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(bottom = 90.dp)
                 ) {
-                    items(transactions, key = { it.id }) { transaction ->
+                    items(
+                        items = transactions,
+                        key = { it.id },
+                        contentType = { "transaction" }
+                    ) { transaction ->
                         TransactionRowItem(
                             transaction = transaction,
-                            onDeleteClick = { viewModel.deleteTransaction(transaction.id) }
+                            onDeleteClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                viewModel.deleteTransaction(transaction.id)
+                            }
                         )
                     }
                 }
@@ -183,7 +220,7 @@ fun TransactionRowItem(
     onDeleteClick: () -> Unit
 ) {
     val isIncome = transaction.type == TransactionType.INCOME
-    val accentColor = if (isIncome) EmeraldGreen else SoftCoral
+    val accentColor = if (isIncome) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.tertiary
 
     CupertinoCard(elevation = 2.dp) {
         Row(
@@ -214,14 +251,14 @@ fun TransactionRowItem(
                     Text(
                         text = transaction.title,
                         style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = "${transaction.category} • ${transaction.date}",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -247,8 +284,8 @@ fun TransactionRowItem(
                 ) {
                     Icon(
                         imageVector = Icons.Default.DeleteOutline,
-                        contentDescription = "Eliminar",
-                        tint = TextSecondary,
+                        contentDescription = stringResource(R.string.transactions_delete),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
                 }

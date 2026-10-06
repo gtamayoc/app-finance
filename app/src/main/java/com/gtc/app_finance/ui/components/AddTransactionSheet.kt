@@ -50,6 +50,7 @@ fun AddTransactionSheet(
     var amountText by remember { mutableStateOf("") }
     var selectedTypeIndex by remember { mutableIntStateOf(1) } // 0 = Ingreso, 1 = Gasto
     var category by remember { mutableStateOf("General") }
+    var isSaving by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -149,11 +150,13 @@ fun AddTransactionSheet(
 
                 Button(
                     onClick = {
+                        if (isSaving) return@Button
+                        isSaving = true
                         val amount = amountText.toDoubleOrNull() ?: 0.0
                         val type = if (selectedTypeIndex == 0) TransactionType.INCOME else TransactionType.EXPENSE
                         onSaveTransaction(title.trim(), amount, type, category.ifBlank { "General" })
                     },
-                    enabled = isValid,
+                    enabled = isValid && !isSaving,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(

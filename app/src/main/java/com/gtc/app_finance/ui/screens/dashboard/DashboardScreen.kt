@@ -55,7 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -471,9 +471,9 @@ fun DashboardScreen(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = "${summary.activeCreditsCount} créditos pendientes",
+                                    text = stringResource(R.string.dashboard_pending_credits_count, summary.activeCreditsCount),
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = TextSecondary,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -501,18 +501,18 @@ fun DashboardScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Movimientos Recientes",
+                        text = stringResource(R.string.dashboard_recent_movements),
                         style = MaterialTheme.typography.titleLarge,
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
 
                     Button(
                         onClick = onNavigateToTransactions,
-                        colors = ButtonDefaults.textButtonColors(contentColor = IndigoBlue)
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("Ver Todos")
+                        Text(stringResource(R.string.dashboard_view_all))
                     }
                 }
             }
@@ -522,14 +522,18 @@ fun DashboardScreen(
             if (recentList.isEmpty()) {
                 item {
                     Text(
-                        text = "No hay movimientos registrados",
+                        text = stringResource(R.string.dashboard_no_movements),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 12.dp)
                     )
                 }
             } else {
-                items(recentList, key = { it.id }) { tx ->
+                items(
+                    items = recentList,
+                    key = { it.id },
+                    contentType = { "transaction" }
+                ) { tx ->
                     DashboardTransactionItem(transaction = tx)
                 }
             }

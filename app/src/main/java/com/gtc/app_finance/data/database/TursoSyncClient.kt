@@ -397,9 +397,22 @@ class TursoSyncClient(
                     return list
                 }
 
-                val txResult = if (results.size() > 0) results.get(0).asJsonObject.getAsJsonObject("response")?.getAsJsonObject("result") else null
-                val crResult = if (results.size() > 1) results.get(1).asJsonObject.getAsJsonObject("response")?.getAsJsonObject("result") else null
-                val pyResult = if (results.size() > 2) results.get(2).asJsonObject.getAsJsonObject("response")?.getAsJsonObject("result") else null
+                val txResp = if (results.size() > 0) results.get(0).asJsonObject.getAsJsonObject("response") else null
+                val crResp = if (results.size() > 1) results.get(1).asJsonObject.getAsJsonObject("response") else null
+                val pyResp = if (results.size() > 2) results.get(2).asJsonObject.getAsJsonObject("response") else null
+
+                val txResult = txResp?.getAsJsonObject("result")
+                val crResult = crResp?.getAsJsonObject("result")
+                val pyResult = pyResp?.getAsJsonObject("result")
+
+                if (txResult == null || crResult == null || pyResult == null) {
+                    val errorMsg = txResp?.getAsJsonObject("error")?.get("message")?.asString
+                        ?: crResp?.getAsJsonObject("error")?.get("message")?.asString
+                        ?: pyResp?.getAsJsonObject("error")?.get("message")?.asString
+                        ?: "Missing valid result in remote pipeline execution"
+                    Log.w("TursoSyncClient", "Failed to pull complete remote data: $errorMsg")
+                    return@withContext null
+                }
 
                 RemoteSyncData(
                     transactions = parseTransactions(txResult),
