@@ -19,6 +19,12 @@
       "skillPath": "plugins/ui-design/skills/mobile-android-design/SKILL.md",
       "computedHash": "143a60d6a0744a5058adf984e3a64b75cd2ef3714a15557f4ff6fd95e39ff23a"
     },
+    "mobile-touch": {
+      "source": "dylantarre/animation-principles",
+      "sourceType": "github",
+      "skillPath": "skills/01-by-domain/mobile-touch/SKILL.md",
+      "computedHash": "cd852f253ae7120d318fef2b495d93f00e682ecc6584f980cb96a9371211d2d3"
+    },
     "testing-android-code": {
       "source": "bitwarden/android",
       "sourceType": "github",
