@@ -1,5 +1,7 @@
 package com.gtc.app_finance.ui.screens.dashboard
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -44,6 +46,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -65,6 +68,7 @@ import com.gtc.app_finance.domain.model.Transaction
 import com.gtc.app_finance.domain.model.TransactionType
 import com.gtc.app_finance.ui.components.AddTransactionSheet
 import com.gtc.app_finance.ui.components.CupertinoCard
+import com.gtc.app_finance.ui.components.DashboardSkeleton
 import com.gtc.app_finance.ui.components.DatabaseDiagnosticSheet
 import com.gtc.app_finance.ui.components.DatabaseDiagnosticActions
 import com.gtc.app_finance.ui.theme.BorderColor
@@ -94,7 +98,14 @@ fun DashboardScreen(
     val credits by viewModel.credits.collectAsStateWithLifecycle()
     val dbStatus by viewModel.dbStatus.collectAsStateWithLifecycle()
     val diagnosticUiState by viewModel.diagnosticUiState.collectAsStateWithLifecycle()
+    val isInitialLoading by viewModel.isInitialLoading.collectAsStateWithLifecycle()
     val recentTransactionsList = remember(transactions) { transactions.take(4) }
+
+    var isScreenLoading by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(220L)
+        isScreenLoading = false
+    }
 
     var showAddSheet by remember { mutableStateOf(false) }
     var showDbSheet by remember { mutableStateOf(false) }
@@ -152,13 +163,22 @@ fun DashboardScreen(
     Scaffold(
         containerColor = CupertinoBackground
     ) { innerPadding ->
-        LazyColumn(
+        Crossfade(
+            targetState = isInitialLoading || isScreenLoading,
+            animationSpec = tween(durationMillis = 180),
+            label = "dashboardLoadingCrossfade",
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
+                .padding(innerPadding)
+        ) { loading ->
+            if (loading) {
+                DashboardSkeleton()
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
             // User Profile Card / Header with Sync Cloud Badge
             item {
                 Card(
@@ -553,6 +573,8 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(70.dp)) // Padding for floating bottom tab bar
             }
         }
+    }
+}
     }
 
     if (showAddSheet) {

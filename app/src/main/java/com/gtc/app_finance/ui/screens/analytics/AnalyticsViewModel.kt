@@ -25,6 +25,9 @@ class AnalyticsViewModel(
     private val repository: FinanceRepository
 ) : ViewModel() {
 
+    val isInitialLoading: StateFlow<Boolean> = repository.isInitialLoading
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.isInitialLoading.value)
+
     val summary: StateFlow<FinancialSummary> = repository.summary
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.summary.value)
 

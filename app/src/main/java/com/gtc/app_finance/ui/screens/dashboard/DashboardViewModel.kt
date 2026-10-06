@@ -22,6 +22,9 @@ class DashboardViewModel(
     private val enableAutoSync: Boolean = true
 ) : ViewModel() {
 
+    val isInitialLoading: StateFlow<Boolean> = repository.isInitialLoading
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.isInitialLoading.value)
+
     val summary: StateFlow<FinancialSummary> = repository.summary
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.summary.value)
 
@@ -66,6 +69,7 @@ class DashboardViewModel(
 
     fun syncData() {
         viewModelScope.launch {
+            repository.triggerShimmerReload()
             repository.syncData()
         }
     }

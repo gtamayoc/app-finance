@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,9 +56,12 @@ import androidx.compose.ui.unit.dp
 import com.gtc.app_finance.R
 import com.gtc.app_finance.domain.model.Transaction
 import com.gtc.app_finance.domain.model.TransactionType
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import com.gtc.app_finance.ui.components.AddTransactionSheet
 import com.gtc.app_finance.ui.components.CupertinoCard
 import com.gtc.app_finance.ui.components.CupertinoSegmentedControl
+import com.gtc.app_finance.ui.components.TransactionsSkeleton
 import com.gtc.app_finance.ui.utils.CurrencyFormatter
 import com.gtc.app_finance.ui.utils.TouchHapticType
 import com.gtc.app_finance.ui.utils.bounceClickable
@@ -73,6 +77,13 @@ fun TransactionsScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val filterIndex by viewModel.filterTypeIndex.collectAsStateWithLifecycle()
     val transactions by viewModel.filteredTransactions.collectAsStateWithLifecycle()
+    val isInitialLoading by viewModel.isInitialLoading.collectAsStateWithLifecycle()
+
+    var isScreenLoading by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(220L)
+        isScreenLoading = false
+    }
 
     var showAddSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -108,14 +119,24 @@ fun TransactionsScreen(
             }
         }
     ) { innerPadding ->
-        Column(
+        Crossfade(
+            targetState = isInitialLoading || isScreenLoading,
+            animationSpec = tween(durationMillis = 180),
+            label = "transactionsLoadingCrossfade",
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 20.dp, vertical = 16.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.transactions_title),
+        ) { loading ->
+            if (loading) {
+                TransactionsSkeleton()
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.transactions_title),
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground
             )
@@ -197,6 +218,8 @@ fun TransactionsScreen(
                 }
             }
         }
+    }
+}
     }
 
     if (showAddSheet) {

@@ -23,6 +23,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,9 +35,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.gtc.app_finance.R
 import com.gtc.app_finance.domain.model.Credit
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import com.gtc.app_finance.ui.components.AddCreditSheet
 import com.gtc.app_finance.ui.components.AddPaymentSheet
 import com.gtc.app_finance.ui.components.CreditCardItem
+import com.gtc.app_finance.ui.components.CreditsSkeleton
 import com.gtc.app_finance.ui.utils.TouchHapticType
 import com.gtc.app_finance.ui.utils.bouncePress
 import com.gtc.app_finance.ui.utils.rememberTouchFeedback
@@ -48,6 +52,13 @@ fun CreditsScreen(
 ) {
     val feedback = rememberTouchFeedback()
     val credits by viewModel.credits.collectAsStateWithLifecycle()
+    val isInitialLoading by viewModel.isInitialLoading.collectAsStateWithLifecycle()
+
+    var isScreenLoading by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(220L)
+        isScreenLoading = false
+    }
 
     var showAddCreditSheet by remember { mutableStateOf(false) }
     var selectedCreditForPayment by remember { mutableStateOf<Credit?>(null) }
@@ -79,14 +90,24 @@ fun CreditsScreen(
             }
         }
     ) { innerPadding ->
-        Column(
+        Crossfade(
+            targetState = isInitialLoading || isScreenLoading,
+            animationSpec = tween(durationMillis = 180),
+            label = "creditsLoadingCrossfade",
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 20.dp, vertical = 16.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.credits_title),
+        ) { loading ->
+            if (loading) {
+                CreditsSkeleton()
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.credits_title),
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground
             )
@@ -135,6 +156,8 @@ fun CreditsScreen(
                 }
             }
         }
+    }
+}
     }
 
     if (showAddCreditSheet) {

@@ -22,7 +22,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,7 +39,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import com.gtc.app_finance.R
+import com.gtc.app_finance.ui.components.AnalyticsSkeleton
 import com.gtc.app_finance.ui.components.CupertinoCard
 import com.gtc.app_finance.ui.utils.CurrencyFormatter
 
@@ -45,6 +52,13 @@ fun AnalyticsScreen(
 ) {
     val summary by viewModel.summary.collectAsStateWithLifecycle()
     val categoryExpenses by viewModel.categoryExpenses.collectAsStateWithLifecycle()
+    val isInitialLoading by viewModel.isInitialLoading.collectAsStateWithLifecycle()
+
+    var isScreenLoading by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(220L)
+        isScreenLoading = false
+    }
 
     val incomeColor = MaterialTheme.colorScheme.secondary
     val expenseColor = MaterialTheme.colorScheme.tertiary
@@ -53,13 +67,22 @@ fun AnalyticsScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        LazyColumn(
+        Crossfade(
+            targetState = isInitialLoading || isScreenLoading,
+            animationSpec = tween(durationMillis = 180),
+            label = "analyticsLoadingCrossfade",
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
+                .padding(innerPadding)
+        ) { loading ->
+            if (loading) {
+                AnalyticsSkeleton()
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
             item {
                 Text(
                     text = stringResource(R.string.analytics_title),
@@ -325,5 +348,7 @@ fun AnalyticsScreen(
                 Spacer(modifier = Modifier.height(70.dp))
             }
         }
+    }
+}
     }
 }

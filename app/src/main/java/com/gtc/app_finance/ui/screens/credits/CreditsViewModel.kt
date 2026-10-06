@@ -13,6 +13,9 @@ class CreditsViewModel(
     private val repository: FinanceRepository
 ) : ViewModel() {
 
+    val isInitialLoading: StateFlow<Boolean> = repository.isInitialLoading
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.isInitialLoading.value)
+
     val credits: StateFlow<List<Credit>> = repository.credits
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.credits.value)
 

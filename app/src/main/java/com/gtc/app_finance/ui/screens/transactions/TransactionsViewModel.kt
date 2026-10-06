@@ -18,6 +18,9 @@ class TransactionsViewModel(
     private val repository: FinanceRepository
 ) : ViewModel() {
 
+    val isInitialLoading: StateFlow<Boolean> = repository.isInitialLoading
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.isInitialLoading.value)
+
     val searchQuery = MutableStateFlow("")
     val filterTypeIndex = MutableStateFlow(0) // 0 = Todos, 1 = Ingresos, 2 = Gastos
 

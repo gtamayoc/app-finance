@@ -59,23 +59,37 @@ class FinanceRepository(
     private val _dbStatus = MutableStateFlow(FullDatabaseStatus())
     val dbStatus: StateFlow<FullDatabaseStatus> = _dbStatus.asStateFlow()
 
+    private val _isInitialLoading = MutableStateFlow(true)
+    val isInitialLoading: StateFlow<Boolean> = _isInitialLoading.asStateFlow()
+
     init {
         kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
             try {
-                refreshLocalData()
+                val start = System.currentTimeMillis()
+                refreshLocalDataInternal()
+                val elapsed = System.currentTimeMillis() - start
+                if (elapsed < 650L) {
+                    kotlinx.coroutines.delay(650L - elapsed)
+                }
             } catch (_: Exception) {
                 // Safe fallback during testing or before database creation
+            } finally {
+                _isInitialLoading.value = false
             }
         }
     }
 
     suspend fun refreshData(): Unit = withContext(Dispatchers.IO) {
         purgeLegacySampleData()
-        refreshLocalData()
+        refreshLocalDataInternal()
         syncData(force = true)
     }
 
     suspend fun refreshLocalData(): Unit = withContext(Dispatchers.IO) {
+        refreshLocalDataInternal()
+    }
+
+    private suspend fun refreshLocalDataInternal(): Unit = withContext(Dispatchers.IO) {
         val txEntities = transactionDao.getAll()
         val crEntities = creditDao.getAll()
 
@@ -87,6 +101,17 @@ class FinanceRepository(
 
         calculateSummary(txList, crList)
         updateLocalHealthStatus()
+    }
+
+    suspend fun triggerShimmerReload() = withContext(Dispatchers.IO) {
+        _isInitialLoading.value = true
+        val start = System.currentTimeMillis()
+        refreshLocalDataInternal()
+        val elapsed = System.currentTimeMillis() - start
+        if (elapsed < 650L) {
+            kotlinx.coroutines.delay(650L - elapsed)
+        }
+        _isInitialLoading.value = false
     }
 
     suspend fun syncData(force: Boolean = false): Boolean = withContext(Dispatchers.IO) {
