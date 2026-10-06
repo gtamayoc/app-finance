@@ -36,6 +36,11 @@ import com.gtc.app_finance.ui.theme.IndigoBlue
 import com.gtc.app_finance.ui.theme.SoftCoral
 import com.gtc.app_finance.ui.theme.TextPrimary
 import com.gtc.app_finance.ui.theme.TextSecondary
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.remember
+import com.gtc.app_finance.ui.utils.TouchHapticType
+import com.gtc.app_finance.ui.utils.bouncePress
+import com.gtc.app_finance.ui.utils.rememberTouchFeedback
 import com.gtc.app_finance.ui.utils.CurrencyFormatter
 
 @Composable
@@ -175,13 +180,22 @@ fun CreditCardItem(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (!credit.isPaid) {
+                val feedback = rememberTouchFeedback()
+                val buttonInteractionSource = remember { MutableInteractionSource() }
+
                 Button(
-                    onClick = { onAddPaymentClick(credit) },
-                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        feedback.perform(TouchHapticType.CLICK)
+                        onAddPaymentClick(credit)
+                    },
+                    interactionSource = buttonInteractionSource,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .bouncePress(minScale = 0.96f, interactionSource = buttonInteractionSource),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = IndigoBlue,
-                        contentColor = TextPrimary
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
                     Icon(

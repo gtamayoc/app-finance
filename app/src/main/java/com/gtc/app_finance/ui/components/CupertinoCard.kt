@@ -1,6 +1,7 @@
 package com.gtc.app_finance.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,13 +10,15 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.gtc.app_finance.ui.theme.CupertinoCardShape
+import com.gtc.app_finance.ui.utils.TouchHapticType
+import com.gtc.app_finance.ui.utils.bouncePress
+import com.gtc.app_finance.ui.utils.rememberTouchFeedback
 
 @Composable
 fun CupertinoCard(
@@ -25,18 +28,23 @@ fun CupertinoCard(
     elevation: Dp = 4.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val haptic = LocalHapticFeedback.current
+    val feedback = rememberTouchFeedback()
     val containerColor = MaterialTheme.colorScheme.surface
     val contentColor = MaterialTheme.colorScheme.onSurface
     val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
 
     if (onClick != null) {
+        val interactionSource = remember { MutableInteractionSource() }
+
         Card(
             onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                feedback.perform(TouchHapticType.CLICK)
                 onClick()
             },
-            modifier = modifier.fillMaxWidth(),
+            interactionSource = interactionSource,
+            modifier = modifier
+                .fillMaxWidth()
+                .bouncePress(minScale = 0.98f, interactionSource = interactionSource),
             shape = shape,
             colors = CardDefaults.cardColors(
                 containerColor = containerColor,

@@ -29,6 +29,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.gtc.app_finance.domain.model.Credit
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import com.gtc.app_finance.ui.utils.TouchHapticType
+import com.gtc.app_finance.ui.utils.bouncePress
+import com.gtc.app_finance.ui.utils.rememberTouchFeedback
 import com.gtc.app_finance.ui.theme.CupertinoSheetShape
 import com.gtc.app_finance.ui.theme.CupertinoSurface
 import com.gtc.app_finance.ui.theme.IndigoBlue
@@ -115,19 +119,26 @@ fun AddPaymentSheet(
                 val parsedAmount = amountText.toDoubleOrNull()
                 val isValid = parsedAmount != null && parsedAmount > 0
 
+                val feedback = rememberTouchFeedback()
+                val saveInteractionSource = remember { MutableInteractionSource() }
+
                 Button(
                     onClick = {
                         if (isSaving) return@Button
                         isSaving = true
+                        feedback.perform(TouchHapticType.SUCCESS)
                         val amount = parsedAmount ?: 0.0
                         onSavePayment(credit.id, amount)
                     },
                     enabled = isValid && !isSaving,
-                    modifier = Modifier.weight(1f),
+                    interactionSource = saveInteractionSource,
+                    modifier = Modifier
+                        .weight(1f)
+                        .bouncePress(minScale = 0.95f, interactionSource = saveInteractionSource),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = IndigoBlue,
-                        contentColor = TextPrimary
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
                     Text("Registrar Abono")

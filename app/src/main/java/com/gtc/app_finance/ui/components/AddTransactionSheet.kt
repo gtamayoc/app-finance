@@ -31,6 +31,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.gtc.app_finance.domain.model.TransactionType
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import com.gtc.app_finance.ui.utils.TouchHapticType
+import com.gtc.app_finance.ui.utils.bouncePress
+import com.gtc.app_finance.ui.utils.rememberTouchFeedback
 import com.gtc.app_finance.ui.theme.CupertinoSheetShape
 import com.gtc.app_finance.ui.theme.CupertinoSurface
 import com.gtc.app_finance.ui.theme.EmeraldGreen
@@ -147,17 +151,23 @@ fun AddTransactionSheet(
 
                 val isValid = title.isNotBlank() && amountText.toDoubleOrNull() != null
                 val activeColor = if (selectedTypeIndex == 0) EmeraldGreen else SoftCoral
+                val feedback = rememberTouchFeedback()
+                val saveInteractionSource = remember { MutableInteractionSource() }
 
                 Button(
                     onClick = {
                         if (isSaving) return@Button
                         isSaving = true
+                        feedback.perform(TouchHapticType.SUCCESS)
                         val amount = amountText.toDoubleOrNull() ?: 0.0
                         val type = if (selectedTypeIndex == 0) TransactionType.INCOME else TransactionType.EXPENSE
                         onSaveTransaction(title.trim(), amount, type, category.ifBlank { "General" })
                     },
                     enabled = isValid && !isSaving,
-                    modifier = Modifier.weight(1f),
+                    interactionSource = saveInteractionSource,
+                    modifier = Modifier
+                        .weight(1f)
+                        .bouncePress(minScale = 0.95f, interactionSource = saveInteractionSource),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = activeColor,

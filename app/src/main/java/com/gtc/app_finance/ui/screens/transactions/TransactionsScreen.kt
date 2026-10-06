@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,8 +35,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxState
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,8 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,19 +62,24 @@ import com.gtc.app_finance.ui.components.AddTransactionSheet
 import com.gtc.app_finance.ui.components.CupertinoCard
 import com.gtc.app_finance.ui.components.CupertinoSegmentedControl
 import com.gtc.app_finance.ui.utils.CurrencyFormatter
+import com.gtc.app_finance.ui.utils.TouchHapticType
+import com.gtc.app_finance.ui.utils.bounceClickable
+import com.gtc.app_finance.ui.utils.bouncePress
+import com.gtc.app_finance.ui.utils.rememberTouchFeedback
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsScreen(
     viewModel: TransactionsViewModel
 ) {
-    val haptic = LocalHapticFeedback.current
+    val feedback = rememberTouchFeedback()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val filterIndex by viewModel.filterTypeIndex.collectAsState()
     val transactions by viewModel.filteredTransactions.collectAsState()
 
     var showAddSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val fabInteractionSource = remember { MutableInteractionSource() }
 
     val filterOptions = listOf(
         stringResource(R.string.transactions_filter_all),
@@ -83,13 +92,16 @@ fun TransactionsScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    feedback.perform(TouchHapticType.CLICK)
                     showAddSheet = true
                 },
+                interactionSource = fabInteractionSource,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape,
-                modifier = Modifier.padding(bottom = 70.dp)
+                modifier = Modifier
+                    .padding(bottom = 70.dp)
+                    .bouncePress(minScale = 0.90f, interactionSource = fabInteractionSource)
             ) {
                 Icon(
                     Icons.Default.Add,
@@ -142,14 +154,11 @@ fun TransactionsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Filter Segmented Control (Todos | Ingresos | Gastos)
+            // Filter Segmented Control (Todos | Ingresos | Gastos) with built-in spring slide & haptics
             CupertinoSegmentedControl(
                 items = filterOptions,
                 selectedIndex = filterIndex,
-                onOptionSelected = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    viewModel.onFilterSelected(it)
-                }
+                onOptionSelected = { viewModel.onFilterSelected(it) }
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -189,13 +198,35 @@ fun TransactionsScreen(
                         key = { it.id },
                         contentType = { "transaction" }
                     ) { transaction ->
-                        TransactionRowItem(
-                            transaction = transaction,
-                            onDeleteClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                viewModel.deleteTransaction(transaction.id)
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { dismissValue ->
+                                if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                                    feedback.perform(TouchHapticType.HEAVY)
+                                    viewModel.deleteTransaction(transaction.id)
+                                    true
+                                } else {
+                                    false
+                                }
                             }
                         )
+
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            enableDismissFromStartToEnd = false,
+                            enableDismissFromEndToStart = true,
+                            backgroundContent = {
+                                DismissBackground(dismissState = dismissState)
+                            },
+                            modifier = Modifier.animateItem()
+                        ) {
+                            TransactionRowItem(
+                                transaction = transaction,
+                                onDeleteClick = {
+                                    feedback.perform(TouchHapticType.HEAVY)
+                                    viewModel.deleteTransaction(transaction.id)
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -211,6 +242,30 @@ fun TransactionsScreen(
                 showAddSheet = false
             }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DismissBackground(dismissState: SwipeToDismissBoxState) {
+    val isDismissing = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (isDismissing) MaterialTheme.colorScheme.errorContainer else Color.Transparent)
+            .padding(horizontal = 24.dp),
+        contentAlignment = Alignment.CenterEnd
+    ) {
+        if (isDismissing) {
+            Icon(
+                imageVector = Icons.Default.DeleteOutline,
+                contentDescription = stringResource(R.string.transactions_delete),
+                tint = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }
 
@@ -280,7 +335,13 @@ fun TransactionRowItem(
 
                 IconButton(
                     onClick = onDeleteClick,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier
+                        .size(36.dp)
+                        .bounceClickable(
+                            minScale = 0.85f,
+                            hapticType = null, // Haptic is executed inside onDeleteClick
+                            onClick = onDeleteClick
+                        )
                 ) {
                     Icon(
                         imageVector = Icons.Default.DeleteOutline,

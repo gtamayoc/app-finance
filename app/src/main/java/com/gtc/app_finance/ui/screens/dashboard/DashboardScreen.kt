@@ -79,6 +79,11 @@ import com.gtc.app_finance.ui.theme.IndigoBlue
 import com.gtc.app_finance.ui.theme.SoftCoral
 import com.gtc.app_finance.ui.theme.TextPrimary
 import com.gtc.app_finance.ui.theme.TextSecondary
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import com.gtc.app_finance.ui.utils.TouchHapticType
+import com.gtc.app_finance.ui.utils.bounceClickable
+import com.gtc.app_finance.ui.utils.bouncePress
+import com.gtc.app_finance.ui.utils.rememberTouchFeedback
 import com.gtc.app_finance.ui.utils.CurrencyFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -186,12 +191,20 @@ fun DashboardScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         // Left: User Avatar + Greeting & Title (Click to open reset dialog)
+                        val feedback = rememberTouchFeedback()
+                        val syncInteractionSource = remember { MutableInteractionSource() }
+                        val addBtnInteractionSource = remember { MutableInteractionSource() }
+
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(12.dp))
-                                .clickable { showClearDialog = true }
+                                .bounceClickable(
+                                    minScale = 0.96f,
+                                    hapticType = TouchHapticType.CLICK,
+                                    onClick = { showClearDialog = true }
+                                )
                         ) {
                             Box(
                                 modifier = Modifier
@@ -243,11 +256,17 @@ fun DashboardScreen(
 
                             // Cloud Sync Badge Button: Green if synced, Red if not synced, tap to attempt sync
                             Surface(
-                                onClick = { viewModel.syncData() },
+                                onClick = {
+                                    feedback.perform(TouchHapticType.CLICK)
+                                    viewModel.syncData()
+                                },
+                                interactionSource = syncInteractionSource,
                                 shape = CircleShape,
                                 color = cloudColor.copy(alpha = 0.15f),
                                 border = BorderStroke(1.dp, cloudColor.copy(alpha = 0.45f)),
-                                modifier = Modifier.size(42.dp)
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .bouncePress(minScale = 0.90f, interactionSource = syncInteractionSource)
                             ) {
                                 Box(
                                     contentAlignment = Alignment.Center,
@@ -272,14 +291,20 @@ fun DashboardScreen(
 
                             // Add Transaction Button (+)
                             Button(
-                                onClick = { showAddSheet = true },
+                                onClick = {
+                                    feedback.perform(TouchHapticType.CLICK)
+                                    showAddSheet = true
+                                },
+                                interactionSource = addBtnInteractionSource,
                                 shape = CircleShape,
                                 contentPadding = PaddingValues(10.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = IndigoBlue,
                                     contentColor = TextPrimary
                                 ),
-                                modifier = Modifier.size(42.dp)
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .bouncePress(minScale = 0.90f, interactionSource = addBtnInteractionSource)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Add,
@@ -534,7 +559,10 @@ fun DashboardScreen(
                     key = { it.id },
                     contentType = { "transaction" }
                 ) { tx ->
-                    DashboardTransactionItem(transaction = tx)
+                    DashboardTransactionItem(
+                        transaction = tx,
+                        onClick = onNavigateToTransactions
+                    )
                 }
             }
 
@@ -570,11 +598,17 @@ fun DashboardScreen(
 }
 
 @Composable
-fun DashboardTransactionItem(transaction: Transaction) {
+fun DashboardTransactionItem(
+    transaction: Transaction,
+    onClick: (() -> Unit)? = null
+) {
     val isIncome = transaction.type == TransactionType.INCOME
     val accentColor = if (isIncome) EmeraldGreen else SoftCoral
 
-    CupertinoCard(elevation = 2.dp) {
+    CupertinoCard(
+        elevation = 2.dp,
+        onClick = onClick
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
