@@ -7,7 +7,7 @@ import android.database.sqlite.SQLiteOpenHelper
 class TursoDatabaseHelper(
     context: Context,
     dbName: String = "finance_app.db",
-    val dbVersion: Int = 1
+    val dbVersion: Int = 3
 ) : SQLiteOpenHelper(
     context,
     dbName,
@@ -65,6 +65,9 @@ class TursoDatabaseHelper(
             );
             """.trimIndent()
         )
+
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_payments_credit_id ON payments(credit_id);")
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -81,6 +84,10 @@ class TursoDatabaseHelper(
                 );
                 """.trimIndent()
             )
+        }
+        if (oldVersion < 3) {
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);")
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_payments_credit_id ON payments(credit_id);")
         }
     }
 

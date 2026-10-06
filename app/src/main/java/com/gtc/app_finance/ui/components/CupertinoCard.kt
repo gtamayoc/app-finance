@@ -28,12 +28,12 @@ fun CupertinoCard(
     elevation: Dp = 4.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val feedback = rememberTouchFeedback()
     val containerColor = MaterialTheme.colorScheme.surface
     val contentColor = MaterialTheme.colorScheme.onSurface
     val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
 
     if (onClick != null) {
+        val feedback = rememberTouchFeedback()
         val interactionSource = remember { MutableInteractionSource() }
 
         Card(

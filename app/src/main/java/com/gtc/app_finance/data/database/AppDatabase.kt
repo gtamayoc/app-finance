@@ -11,7 +11,7 @@ class AppDatabase(val helper: TursoDatabaseHelper) {
         fun getInstance(
             context: Context,
             databaseName: String = "finance_app.db",
-            databaseVersion: Int = 1
+            databaseVersion: Int = 3
         ): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: AppDatabase(

@@ -174,7 +174,7 @@ fun CreditCardItem(
                     .height(8.dp)
                     .clip(RoundedCornerShape(4.dp)),
                 color = if (credit.isPaid) EmeraldGreen else IndigoBlue,
-                trackColor = Color(0xFF2C2C35)
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
 
             Spacer(modifier = Modifier.height(16.dp))

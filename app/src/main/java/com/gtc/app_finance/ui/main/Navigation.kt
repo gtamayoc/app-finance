@@ -1,9 +1,7 @@
 package com.gtc.app_finance.ui.main
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -29,18 +27,10 @@ fun AppNavigation(
         navController = navController,
         startDestination = NavTab.Dashboard.route,
         modifier = modifier,
-        enterTransition = {
-            fadeIn(animationSpec = tween(durationMillis = 140, easing = FastOutSlowInEasing))
-        },
-        exitTransition = {
-            fadeOut(animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing))
-        },
-        popEnterTransition = {
-            fadeIn(animationSpec = tween(durationMillis = 140, easing = FastOutSlowInEasing))
-        },
-        popExitTransition = {
-            fadeOut(animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing))
-        }
+        enterTransition = { EnterTransition.None },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { ExitTransition.None }
     ) {
         composable(NavTab.Dashboard.route) {
             val viewModel: DashboardViewModel = koinViewModel()

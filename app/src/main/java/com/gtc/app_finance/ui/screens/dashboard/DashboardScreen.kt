@@ -44,8 +44,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,14 +54,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import com.gtc.app_finance.R
 import com.gtc.app_finance.domain.model.ConnectionStatus
 import com.gtc.app_finance.domain.model.Transaction
@@ -93,28 +89,15 @@ fun DashboardScreen(
     onNavigateToTransactions: () -> Unit,
     onNavigateToCredits: () -> Unit
 ) {
-    val summary by viewModel.summary.collectAsState()
-    val transactions by viewModel.recentTransactions.collectAsState()
-    val credits by viewModel.credits.collectAsState()
-    val dbStatus by viewModel.dbStatus.collectAsState()
-    val diagnosticUiState by viewModel.diagnosticUiState.collectAsState()
+    val summary by viewModel.summary.collectAsStateWithLifecycle()
+    val transactions by viewModel.recentTransactions.collectAsStateWithLifecycle()
+    val credits by viewModel.credits.collectAsStateWithLifecycle()
+    val dbStatus by viewModel.dbStatus.collectAsStateWithLifecycle()
+    val diagnosticUiState by viewModel.diagnosticUiState.collectAsStateWithLifecycle()
 
     var showAddSheet by remember { mutableStateOf(false) }
     var showDbSheet by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
-
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.syncData()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
 
     val addSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val dbSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)

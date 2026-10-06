@@ -22,8 +22,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,8 +43,8 @@ import com.gtc.app_finance.ui.utils.CurrencyFormatter
 fun AnalyticsScreen(
     viewModel: AnalyticsViewModel
 ) {
-    val summary by viewModel.summary.collectAsState()
-    val categoryExpenses by viewModel.categoryExpenses.collectAsState()
+    val summary by viewModel.summary.collectAsStateWithLifecycle()
+    val categoryExpenses by viewModel.categoryExpenses.collectAsStateWithLifecycle()
 
     val incomeColor = MaterialTheme.colorScheme.secondary
     val expenseColor = MaterialTheme.colorScheme.tertiary
@@ -75,7 +75,7 @@ fun AnalyticsScreen(
 
             // Canvas Donut Chart Card
             item {
-                CupertinoCard(elevation = 6.dp) {
+                CupertinoCard(elevation = 2.dp) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -106,6 +106,7 @@ fun AnalyticsScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Canvas(modifier = Modifier.size(180.dp)) {
+                                    val strokeStyle = Stroke(width = 28.dp.toPx(), cap = StrokeCap.Butt)
                                     var startAngle = -90f
                                     categoryExpenses.forEach { cat ->
                                         val sweepAngle = cat.percentage * 360f
@@ -114,7 +115,7 @@ fun AnalyticsScreen(
                                             startAngle = startAngle,
                                             sweepAngle = sweepAngle,
                                             useCenter = false,
-                                            style = Stroke(width = 28.dp.toPx(), cap = StrokeCap.Butt),
+                                            style = strokeStyle,
                                             size = Size(size.width, size.height)
                                         )
                                         startAngle += sweepAngle
@@ -267,7 +268,11 @@ fun AnalyticsScreen(
                 )
             }
 
-            items(categoryExpenses, key = { it.category }) { cat ->
+            items(
+                items = categoryExpenses,
+                key = { it.category },
+                contentType = { "category_expense" }
+            ) { cat ->
                 CupertinoCard(elevation = 2.dp) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),

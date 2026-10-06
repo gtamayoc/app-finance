@@ -1,8 +1,6 @@
 package com.gtc.app_finance.ui.screens.credits
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,15 +23,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.gtc.app_finance.R
@@ -41,17 +37,21 @@ import com.gtc.app_finance.domain.model.Credit
 import com.gtc.app_finance.ui.components.AddCreditSheet
 import com.gtc.app_finance.ui.components.AddPaymentSheet
 import com.gtc.app_finance.ui.components.CreditCardItem
+import com.gtc.app_finance.ui.utils.TouchHapticType
+import com.gtc.app_finance.ui.utils.bouncePress
+import com.gtc.app_finance.ui.utils.rememberTouchFeedback
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreditsScreen(
     viewModel: CreditsViewModel
 ) {
-    val haptic = LocalHapticFeedback.current
-    val credits by viewModel.credits.collectAsState()
+    val feedback = rememberTouchFeedback()
+    val credits by viewModel.credits.collectAsStateWithLifecycle()
 
     var showAddCreditSheet by remember { mutableStateOf(false) }
     var selectedCreditForPayment by remember { mutableStateOf<Credit?>(null) }
+    val fabInteractionSource = remember { MutableInteractionSource() }
 
     val addCreditSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val addPaymentSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -61,13 +61,16 @@ fun CreditsScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    feedback.perform(TouchHapticType.CLICK)
                     showAddCreditSheet = true
                 },
+                interactionSource = fabInteractionSource,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape,
-                modifier = Modifier.padding(bottom = 70.dp)
+                modifier = Modifier
+                    .padding(bottom = 70.dp)
+                    .bouncePress(minScale = 0.90f, interactionSource = fabInteractionSource)
             ) {
                 Icon(
                     Icons.Default.Add,
@@ -95,35 +98,27 @@ fun CreditsScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            AnimatedVisibility(
-                visible = credits.isEmpty(),
-                enter = fadeIn(),
-                exit = fadeOut()
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(bottom = 90.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 40.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = stringResource(R.string.credits_empty),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            AnimatedVisibility(
-                visible = credits.isNotEmpty(),
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(bottom = 90.dp)
-                ) {
+                if (credits.isEmpty()) {
+                    item(key = "empty_credits_state") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = stringResource(R.string.credits_empty),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
                     items(
                         items = credits,
                         key = { it.id },
@@ -132,7 +127,7 @@ fun CreditsScreen(
                         CreditCardItem(
                             credit = credit,
                             onAddPaymentClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                feedback.perform(TouchHapticType.CLICK)
                                 selectedCreditForPayment = it
                             }
                         )

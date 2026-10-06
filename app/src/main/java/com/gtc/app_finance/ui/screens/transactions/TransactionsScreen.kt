@@ -1,8 +1,5 @@
 package com.gtc.app_finance.ui.screens.transactions
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -42,11 +39,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,9 +70,9 @@ fun TransactionsScreen(
     viewModel: TransactionsViewModel
 ) {
     val feedback = rememberTouchFeedback()
-    val searchQuery by viewModel.searchQuery.collectAsState()
-    val filterIndex by viewModel.filterTypeIndex.collectAsState()
-    val transactions by viewModel.filteredTransactions.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val filterIndex by viewModel.filterTypeIndex.collectAsStateWithLifecycle()
+    val transactions by viewModel.filteredTransactions.collectAsStateWithLifecycle()
 
     var showAddSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -163,36 +160,28 @@ fun TransactionsScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // List of Transactions with smooth animated state transitions
-            AnimatedVisibility(
-                visible = transactions.isEmpty(),
-                enter = fadeIn(),
-                exit = fadeOut()
+            // List of Transactions with persistent scroll container
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 90.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 40.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = stringResource(R.string.transactions_empty),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            AnimatedVisibility(
-                visible = transactions.isNotEmpty(),
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 90.dp)
-                ) {
+                if (transactions.isEmpty()) {
+                    item(key = "empty_transactions_state") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = stringResource(R.string.transactions_empty),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
                     items(
                         items = transactions,
                         key = { it.id },

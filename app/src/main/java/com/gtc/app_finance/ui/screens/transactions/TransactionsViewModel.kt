@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.gtc.app_finance.data.repository.FinanceRepository
 import com.gtc.app_finance.domain.model.Transaction
 import com.gtc.app_finance.domain.model.TransactionType
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -19,9 +21,10 @@ class TransactionsViewModel(
     val searchQuery = MutableStateFlow("")
     val filterTypeIndex = MutableStateFlow(0) // 0 = Todos, 1 = Ingresos, 2 = Gastos
 
+    @OptIn(FlowPreview::class)
     val filteredTransactions: StateFlow<List<Transaction>> = combine(
         repository.transactions,
-        searchQuery,
+        searchQuery.debounce { if (it.isBlank()) 0L else 200L },
         filterTypeIndex
     ) { transactions, query, filter ->
         transactions.filter { tx ->
