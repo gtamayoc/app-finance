@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.database.Cursor
 import com.gtc.app_finance.data.database.TursoDatabaseHelper
 import com.gtc.app_finance.data.entity.TransactionEntity
+import com.gtc.app_finance.domain.model.MonthlyAggregate
 
 class TransactionDao(private val dbHelper: TursoDatabaseHelper) {
 
@@ -52,6 +53,116 @@ class TransactionDao(private val dbHelper: TursoDatabaseHelper) {
                         date = c.getString(dateIdx)
                     )
                 )
+            }
+        }
+        return list
+    }
+
+    fun getByDateRange(startDate: String, endDate: String): List<TransactionEntity> {
+        val list = mutableListOf<TransactionEntity>()
+        val db = dbHelper.readableDatabase
+        val cursor: Cursor = db.query(
+            "transactions",
+            null,
+            "date >= ? AND date <= ?",
+            arrayOf(startDate, endDate),
+            null,
+            null,
+            "date DESC"
+        )
+        cursor.use { c ->
+            val idIdx = c.getColumnIndexOrThrow("id")
+            val titleIdx = c.getColumnIndexOrThrow("title")
+            val amountIdx = c.getColumnIndexOrThrow("amount")
+            val typeIdx = c.getColumnIndexOrThrow("type")
+            val categoryIdx = c.getColumnIndexOrThrow("category")
+            val dateIdx = c.getColumnIndexOrThrow("date")
+
+            while (c.moveToNext()) {
+                list.add(
+                    TransactionEntity(
+                        id = c.getString(idIdx),
+                        title = c.getString(titleIdx),
+                        amount = c.getDouble(amountIdx),
+                        type = c.getString(typeIdx),
+                        category = c.getString(categoryIdx),
+                        date = c.getString(dateIdx)
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    fun getByMonth(yearMonth: String): List<TransactionEntity> {
+        val list = mutableListOf<TransactionEntity>()
+        val db = dbHelper.readableDatabase
+        val cursor: Cursor = db.query(
+            "transactions",
+            null,
+            "date LIKE ?",
+            arrayOf("$yearMonth%"),
+            null,
+            null,
+            "date DESC"
+        )
+        cursor.use { c ->
+            val idIdx = c.getColumnIndexOrThrow("id")
+            val titleIdx = c.getColumnIndexOrThrow("title")
+            val amountIdx = c.getColumnIndexOrThrow("amount")
+            val typeIdx = c.getColumnIndexOrThrow("type")
+            val categoryIdx = c.getColumnIndexOrThrow("category")
+            val dateIdx = c.getColumnIndexOrThrow("date")
+
+            while (c.moveToNext()) {
+                list.add(
+                    TransactionEntity(
+                        id = c.getString(idIdx),
+                        title = c.getString(titleIdx),
+                        amount = c.getDouble(amountIdx),
+                        type = c.getString(typeIdx),
+                        category = c.getString(categoryIdx),
+                        date = c.getString(dateIdx)
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    fun getMonthlyAggregates(): List<MonthlyAggregate> {
+        val list = mutableListOf<MonthlyAggregate>()
+        val db = dbHelper.readableDatabase
+        val sql = """
+            SELECT 
+                substr(date, 1, 7) as ym,
+                COALESCE(SUM(CASE WHEN LOWER(type) = 'income' THEN amount ELSE 0 END), 0.0) as income,
+                COALESCE(SUM(CASE WHEN LOWER(type) = 'expense' THEN amount ELSE 0 END), 0.0) as expense
+            FROM transactions
+            GROUP BY substr(date, 1, 7)
+            ORDER BY ym DESC;
+        """.trimIndent()
+
+        val cursor = db.rawQuery(sql, null)
+        cursor.use { c ->
+            val ymIdx = c.getColumnIndexOrThrow("ym")
+            val incomeIdx = c.getColumnIndexOrThrow("income")
+            val expenseIdx = c.getColumnIndexOrThrow("expense")
+
+            while (c.moveToNext()) {
+                val ym = c.getString(ymIdx)
+                if (!ym.isNullOrBlank()) {
+                    val inc = c.getDouble(incomeIdx)
+                    val exp = c.getDouble(expenseIdx)
+                    list.add(
+                        MonthlyAggregate(
+                            yearMonth = ym,
+                            totalIncome = inc,
+                            totalExpense = exp,
+                            netBalance = inc - exp
+                        )
+                    )
+                }
             }
         }
         return list

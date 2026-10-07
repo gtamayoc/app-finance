@@ -12,6 +12,10 @@ import com.gtc.app_finance.cloud.infrastructure.factory.CloudServiceFactory
 import com.gtc.app_finance.cloud.infrastructure.factory.DefaultCloudConfigProvider
 import com.gtc.app_finance.cloud.infrastructure.factory.ICloudConfigProvider
 import com.gtc.app_finance.cloud.infrastructure.gcp.LocalFileCredentialsProvider
+import com.gtc.app_finance.cloud.sync.CloudSyncEngine
+import com.gtc.app_finance.cloud.sync.conflict.ConflictResolver
+import com.gtc.app_finance.cloud.sync.mutation.ISyncMutationQueue
+import com.gtc.app_finance.cloud.sync.mutation.LocalSyncMutationQueue
 import org.koin.dsl.module
 
 val cloudModule = module {
@@ -33,4 +37,18 @@ val cloudModule = module {
     single<IStorageService> { get<CloudServiceFactory>().getStorageService() }
     single<IDatabaseService> { get<CloudServiceFactory>().getDatabaseService() }
     single<IFunctionsService> { get<CloudServiceFactory>().getFunctionsService() }
+
+    single<ISyncMutationQueue> { LocalSyncMutationQueue() }
+    single { ConflictResolver() }
+
+    single {
+        CloudSyncEngine(
+            databaseService = get(),
+            mutationQueue = get(),
+            transactionDao = get(),
+            creditDao = get(),
+            paymentDao = get(),
+            conflictResolver = get()
+        )
+    }
 }

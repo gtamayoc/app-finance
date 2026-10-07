@@ -77,7 +77,8 @@ val repositoryModule = module {
             paymentDao = get(),
             syncQueueDao = get(),
             tursoSyncClient = get(),
-            configProvider = get()
+            configProvider = get(),
+            cloudSyncEngine = getOrNull()
         )
     }
 }

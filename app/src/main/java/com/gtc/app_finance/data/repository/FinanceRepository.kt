@@ -16,6 +16,7 @@ import com.gtc.app_finance.domain.model.Credit
 import com.gtc.app_finance.domain.model.FinancialSummary
 import com.gtc.app_finance.domain.model.FullDatabaseStatus
 import com.gtc.app_finance.domain.model.LocalDbDiagnostic
+import com.gtc.app_finance.domain.model.MonthlyAggregate
 import com.gtc.app_finance.domain.model.Payment
 import com.gtc.app_finance.domain.model.Transaction
 import com.gtc.app_finance.domain.model.TransactionType
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import com.gtc.app_finance.cloud.sync.CloudSyncEngine
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -39,7 +41,8 @@ class FinanceRepository(
     private val paymentDao: PaymentDao,
     private val syncQueueDao: SyncQueueDao,
     private val tursoSyncClient: TursoSyncClient,
-    private val configProvider: TursoConfigProvider
+    private val configProvider: TursoConfigProvider,
+    private val cloudSyncEngine: CloudSyncEngine? = null
 ) {
 
     private val syncMutex = Mutex()
@@ -83,6 +86,8 @@ class FinanceRepository(
         try {
             purgeLegacySampleData()
             refreshLocalDataInternal()
+            cloudSyncEngine?.startLiveSync()
+            cloudSyncEngine?.pushPendingMutations()
             syncData(force = true)
         } catch (e: Exception) {
             Log.e("FinanceRepository", "Error during refreshData: ${e.message}", e)
@@ -384,7 +389,10 @@ class FinanceRepository(
             date = date
         )
         val typeString = if (type == TransactionType.INCOME) "income" else "expense"
-        transactionDao.insert(TransactionEntity.fromDomain(transaction))
+        val txEntity = TransactionEntity.fromDomain(transaction)
+        transactionDao.insert(txEntity)
+        cloudSyncEngine?.queueTransactionUpsert(txEntity)
+        cloudSyncEngine?.pushPendingMutations()
 
         val sql = "INSERT OR REPLACE INTO transactions (id, title, amount, type, category, date) VALUES ('${transaction.id}', '${title.replace("'", "''")}', $amount, '$typeString', '${category.replace("'", "''")}', '$date');"
         syncQueueDao.insert(
@@ -402,6 +410,9 @@ class FinanceRepository(
 
     suspend fun deleteTransaction(id: String) = withContext(Dispatchers.IO) {
         transactionDao.deleteById(id)
+        cloudSyncEngine?.queueTransactionDelete(id)
+        cloudSyncEngine?.pushPendingMutations()
+
         val sql = "DELETE FROM transactions WHERE id = '$id';"
         syncQueueDao.insert(
             SyncQueueEntity(
@@ -428,7 +439,10 @@ class FinanceRepository(
             remainingAmount = totalAmount,
             dueDate = dueDate
         )
-        creditDao.insert(CreditEntity.fromDomain(credit))
+        val crEntity = CreditEntity.fromDomain(credit)
+        creditDao.insert(crEntity)
+        cloudSyncEngine?.queueCreditUpsert(crEntity)
+        cloudSyncEngine?.pushPendingMutations()
 
         val sql = "INSERT OR REPLACE INTO credits (id, title, total_amount, remaining_amount, due_date) VALUES ('${credit.id}', '${title.replace("'", "''")}', $totalAmount, $totalAmount, '$dueDate');"
         syncQueueDao.insert(
@@ -461,7 +475,9 @@ class FinanceRepository(
             amount = amount,
             date = date
         )
-        paymentDao.insert(PaymentEntity.fromDomain(payment))
+        val pyEntity = PaymentEntity.fromDomain(payment)
+        paymentDao.insert(pyEntity)
+        cloudSyncEngine?.queuePaymentUpsert(pyEntity)
 
         val newRemaining = (credit.remainingAmount - amount).coerceAtLeast(0.0)
         creditDao.updateRemainingAmount(creditId, newRemaining)
@@ -474,7 +490,10 @@ class FinanceRepository(
             category = "Pago Crédito",
             date = date
         )
-        transactionDao.insert(TransactionEntity.fromDomain(expenseTx))
+        val expenseTxEntity = TransactionEntity.fromDomain(expenseTx)
+        transactionDao.insert(expenseTxEntity)
+        cloudSyncEngine?.queueTransactionUpsert(expenseTxEntity)
+        cloudSyncEngine?.pushPendingMutations()
 
         val paySql = "INSERT OR REPLACE INTO payments (id, credit_id, amount, date) VALUES ('${payment.id}', '$creditId', $amount, '$date');"
         val updateCreditSql = "UPDATE credits SET remaining_amount = $newRemaining WHERE id = '$creditId';"
@@ -491,6 +510,8 @@ class FinanceRepository(
     suspend fun deleteCredit(id: String) = withContext(Dispatchers.IO) {
         paymentDao.deleteByCreditId(id)
         creditDao.deleteById(id)
+        cloudSyncEngine?.queueCreditDelete(id)
+        cloudSyncEngine?.pushPendingMutations()
 
         val delPaySql = "DELETE FROM payments WHERE credit_id = '$id';"
         val sql = "DELETE FROM credits WHERE id = '$id';"
@@ -514,6 +535,38 @@ class FinanceRepository(
 
         refreshLocalData()
         syncData()
+    }
+
+    suspend fun deletePayment(id: String): Boolean = withContext(Dispatchers.IO) {
+        val ok = paymentDao.deleteById(id)
+        if (ok) {
+            cloudSyncEngine?.queuePaymentDelete(id)
+            cloudSyncEngine?.pushPendingMutations()
+            val delPaySql = "DELETE FROM payments WHERE id = '$id';"
+            syncQueueDao.insert(
+                SyncQueueEntity(
+                    entityType = "PAYMENT",
+                    entityId = id,
+                    operation = "DELETE",
+                    sqlCommand = delPaySql
+                )
+            )
+            refreshLocalData()
+            syncData()
+        }
+        ok
+    }
+
+    suspend fun getTransactionsForMonth(yearMonth: String): List<Transaction> = withContext(Dispatchers.IO) {
+        transactionDao.getByMonth(yearMonth).map { it.toDomain() }
+    }
+
+    suspend fun getTransactionsDateRange(startDate: String, endDate: String): List<Transaction> = withContext(Dispatchers.IO) {
+        transactionDao.getByDateRange(startDate, endDate).map { it.toDomain() }
+    }
+
+    suspend fun getMonthlyAggregates(): List<MonthlyAggregate> = withContext(Dispatchers.IO) {
+        transactionDao.getMonthlyAggregates()
     }
 
     private fun purgeLegacySampleData() {

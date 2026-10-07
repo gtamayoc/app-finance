@@ -204,9 +204,66 @@ class TursoSyncClient(
             );
         """.trimIndent()
 
+        val createTrgInsertSql = """
+            CREATE TRIGGER IF NOT EXISTS trg_payment_after_insert
+            AFTER INSERT ON payments
+            FOR EACH ROW
+            BEGIN
+                UPDATE credits
+                SET remaining_amount = MAX(0.0, total_amount - (
+                    SELECT COALESCE(SUM(amount), 0.0) FROM payments WHERE credit_id = NEW.credit_id
+                ))
+                WHERE id = NEW.credit_id;
+            END;
+        """.trimIndent()
+
+        val createTrgDeleteSql = """
+            CREATE TRIGGER IF NOT EXISTS trg_payment_after_delete
+            AFTER DELETE ON payments
+            FOR EACH ROW
+            BEGIN
+                UPDATE credits
+                SET remaining_amount = MAX(0.0, total_amount - (
+                    SELECT COALESCE(SUM(amount), 0.0) FROM payments WHERE credit_id = OLD.credit_id
+                ))
+                WHERE id = OLD.credit_id;
+            END;
+        """.trimIndent()
+
+        val createTrgUpdateSql = """
+            CREATE TRIGGER IF NOT EXISTS trg_payment_after_update
+            AFTER UPDATE OF amount, credit_id ON payments
+            FOR EACH ROW
+            BEGIN
+                UPDATE credits
+                SET remaining_amount = MAX(0.0, total_amount - (
+                    SELECT COALESCE(SUM(amount), 0.0) FROM payments WHERE credit_id = OLD.credit_id
+                ))
+                WHERE id = OLD.credit_id;
+
+                UPDATE credits
+                SET remaining_amount = MAX(0.0, total_amount - (
+                    SELECT COALESCE(SUM(amount), 0.0) FROM payments WHERE credit_id = NEW.credit_id
+                ))
+                WHERE id = NEW.credit_id;
+            END;
+        """.trimIndent()
+
         val ok1 = executeQuery(createTransactionsSql)
         val ok2 = executeQuery(createCreditsSql)
         val ok3 = executeQuery(createPaymentsSql)
+
+        // Indexes
+        executeQuery("CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);")
+        executeQuery("CREATE INDEX IF NOT EXISTS idx_transactions_date_type ON transactions(date DESC, type);")
+        executeQuery("CREATE INDEX IF NOT EXISTS idx_payments_credit_id ON payments(credit_id);")
+        executeQuery("CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(date DESC);")
+
+        // Triggers
+        executeQuery(createTrgInsertSql)
+        executeQuery(createTrgDeleteSql)
+        executeQuery(createTrgUpdateSql)
+
         return@withContext ok1 && ok2 && ok3
     }
 
