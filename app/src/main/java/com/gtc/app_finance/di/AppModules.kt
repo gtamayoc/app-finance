@@ -19,6 +19,7 @@ import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
+import com.gtc.app_finance.cloud.di.cloudModule
 import java.util.concurrent.TimeUnit
 
 val appModule = module {
@@ -93,5 +94,6 @@ val appModules = listOf(
     databaseModule,
     networkModule,
     repositoryModule,
-    viewModelModule
+    viewModelModule,
+    cloudModule
 )
