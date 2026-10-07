@@ -8,15 +8,23 @@ import com.gtc.app_finance.data.entity.PaymentEntity
 class PaymentDao(private val dbHelper: TursoDatabaseHelper) {
 
     fun insert(payment: PaymentEntity): Boolean {
-        val db = dbHelper.writableDatabase
-        val values = ContentValues().apply {
-            put("id", payment.id)
-            put("credit_id", payment.creditId)
-            put("amount", payment.amount)
-            put("date", payment.date)
+        return try {
+            val db = dbHelper.writableDatabase
+            val values = ContentValues().apply {
+                put("id", payment.id)
+                put("credit_id", payment.creditId)
+                put("amount", payment.amount)
+                put("date", payment.date)
+            }
+            val result = db.insertWithOnConflict("payments", null, values, android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE)
+            result != -1L
+        } catch (e: android.database.sqlite.SQLiteConstraintException) {
+            android.util.Log.w("PaymentDao", "Foreign key constraint failed inserting payment ${payment.id} for credit ${payment.creditId}: ${e.message}")
+            false
+        } catch (e: Exception) {
+            android.util.Log.e("PaymentDao", "Error inserting payment ${payment.id}", e)
+            false
         }
-        val result = db.insertWithOnConflict("payments", null, values, android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE)
-        return result != -1L
     }
 
     fun getPaymentsForCredit(creditId: String): List<PaymentEntity> {

@@ -80,9 +80,13 @@ class FinanceRepository(
     }
 
     suspend fun refreshData(): Unit = withContext(Dispatchers.IO) {
-        purgeLegacySampleData()
-        refreshLocalDataInternal()
-        syncData(force = true)
+        try {
+            purgeLegacySampleData()
+            refreshLocalDataInternal()
+            syncData(force = true)
+        } catch (e: Exception) {
+            Log.e("FinanceRepository", "Error during refreshData: ${e.message}", e)
+        }
     }
 
     suspend fun refreshLocalData(): Unit = withContext(Dispatchers.IO) {
@@ -115,7 +119,8 @@ class FinanceRepository(
     }
 
     suspend fun syncData(force: Boolean = false): Boolean = withContext(Dispatchers.IO) {
-        syncMutex.withLock {
+        try {
+            syncMutex.withLock {
             val now = System.currentTimeMillis()
             val hasPendingQueue = syncQueueDao.getCount() > 0
             if (!force && !hasPendingQueue && (now - lastSyncTimestamp) < MIN_SYNC_INTERVAL_MS) {
@@ -195,18 +200,26 @@ class FinanceRepository(
                 val remoteCrIds = remoteData.credits.map { it.id }.toSet()
                 for (localCr in localCrs.values) {
                     if (localCr.id !in remoteCrIds && localCr.id !in pendingCrInsertIds) {
+                        paymentDao.deleteByCreditId(localCr.id)
                         creditDao.deleteById(localCr.id)
                         localDataModified = true
                     }
                 }
 
-                // Reconcile Payments: only write if entity is new or modified
+                // Reconcile Payments: only write if entity is new or modified AND credit exists locally
+                val validCreditIds = creditDao.getAllIds()
                 val localPys = paymentDao.getAll().associateBy { it.id }
                 for (py in remoteData.payments) {
+                    if (py.creditId !in validCreditIds) {
+                        Log.w("FinanceRepository", "Skipping orphan payment ${py.id}: credit ${py.creditId} not found locally")
+                        continue
+                    }
                     val local = localPys[py.id]
                     if (local == null || local != py) {
-                        paymentDao.insert(py)
-                        localDataModified = true
+                        val inserted = paymentDao.insert(py)
+                        if (inserted) {
+                            localDataModified = true
+                        }
                     }
                 }
                 val remotePyIds = remoteData.payments.map { it.id }.toSet()
@@ -241,7 +254,17 @@ class FinanceRepository(
             lastSyncTimestamp = System.currentTimeMillis()
             return@withLock true
         }
+    } catch (e: Exception) {
+        Log.e("FinanceRepository", "Sync failed with exception: ${e.message}", e)
+        _dbStatus.value = _dbStatus.value.copy(
+            remote = _dbStatus.value.remote.copy(
+                status = ConnectionStatus.ERROR,
+                message = e.message ?: "Sync error"
+            )
+        )
+        false
     }
+}
 
     suspend fun checkDatabaseHealth(): FullDatabaseStatus = withContext(Dispatchers.IO) {
         _dbStatus.value = _dbStatus.value.copy(
@@ -497,23 +520,36 @@ class FinanceRepository(
         if (hasPurgedLegacySampleData) return
         hasPurgedLegacySampleData = true
 
-        val sampleTitles = setOf(
-            "Salario Mensual", "Supermercado Exito", "Pago Arriendo",
-            "Freelance Diseño", "Servicios Públicos"
-        )
-        for (tx in transactionDao.getAll()) {
-            if (tx.title in sampleTitles) {
-                transactionDao.deleteById(tx.id)
+        try {
+            val sampleTitles = setOf(
+                "Salario Mensual", "Supermercado Exito", "Pago Arriendo",
+                "Freelance Diseño", "Servicios Públicos"
+            )
+            for (tx in transactionDao.getAll()) {
+                if (tx.title in sampleTitles) {
+                    transactionDao.deleteById(tx.id)
+                }
             }
-        }
 
-        val sampleCreditTitles = setOf(
-            "Tarjeta de Crédito Visa", "Préstamo Libre Inversión"
-        )
-        for (cr in creditDao.getAll()) {
-            if (cr.title in sampleCreditTitles) {
-                creditDao.deleteById(cr.id)
+            val sampleCreditTitles = setOf(
+                "Tarjeta de Crédito Visa", "Préstamo Libre Inversión"
+            )
+            for (cr in creditDao.getAll()) {
+                if (cr.title in sampleCreditTitles) {
+                    paymentDao.deleteByCreditId(cr.id)
+                    creditDao.deleteById(cr.id)
+                }
             }
+
+            // Clean up any existing orphan payments where credit no longer exists
+            val currentCreditIds = creditDao.getAllIds()
+            for (py in paymentDao.getAll()) {
+                if (py.creditId !in currentCreditIds) {
+                    paymentDao.deleteById(py.id)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("FinanceRepository", "purgeLegacySampleData encountered non-fatal error: ${e.message}")
         }
     }
 }
