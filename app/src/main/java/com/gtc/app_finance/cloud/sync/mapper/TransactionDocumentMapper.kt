@@ -11,7 +11,7 @@ object TransactionDocumentMapper {
         entity: TransactionEntity,
         updatedAtEpochMs: Long = System.currentTimeMillis()
     ): DatabaseDocument {
-        val data = mapOf(
+        val data = mutableMapOf<String, Any?>(
             "title" to entity.title,
             "amount" to entity.amount,
             "type" to entity.type,
@@ -19,6 +19,9 @@ object TransactionDocumentMapper {
             "date" to entity.date,
             "updatedAt" to updatedAtEpochMs
         )
+        if (entity.paymentId != null) {
+            data["paymentId"] = entity.paymentId
+        }
         return DatabaseDocument(
             id = entity.id,
             collection = COLLECTION_NAME,
@@ -34,6 +37,7 @@ object TransactionDocumentMapper {
         val type = data["type"] as? String ?: "expense"
         val category = data["category"] as? String ?: "General"
         val date = data["date"] as? String ?: return null
+        val paymentId = data["paymentId"] as? String
 
         return TransactionEntity(
             id = document.id,
@@ -41,7 +45,8 @@ object TransactionDocumentMapper {
             amount = amount,
             type = type,
             category = category,
-            date = date
+            date = date,
+            paymentId = paymentId
         )
     }
 }

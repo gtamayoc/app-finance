@@ -7,7 +7,7 @@ import android.database.sqlite.SQLiteOpenHelper
 class TursoDatabaseHelper(
     context: Context,
     dbName: String = "finance_app.db",
-    val dbVersion: Int = 4
+    val dbVersion: Int = 5
 ) : SQLiteOpenHelper(
     context,
     dbName,
@@ -23,7 +23,8 @@ class TursoDatabaseHelper(
                 amount REAL NOT NULL,
                 type TEXT NOT NULL,
                 category TEXT NOT NULL,
-                date TEXT NOT NULL
+                date TEXT NOT NULL,
+                payment_id TEXT
             );
         """
 
@@ -104,9 +105,63 @@ class TursoDatabaseHelper(
             END;
         """
 
+        // Reciprocal triggers: Delete or Update on transactions synchronizes with payments
+        const val CREATE_TRG_TRANSACTION_DELETE_SYNC_PAYMENT_SQL = """
+            CREATE TRIGGER IF NOT EXISTS trg_transaction_after_delete_sync_payment
+            AFTER DELETE ON transactions
+            FOR EACH ROW
+            WHEN OLD.payment_id IS NOT NULL OR OLD.category = 'Pago Crédito' OR OLD.id IN (SELECT id FROM payments)
+            BEGIN
+                DELETE FROM payments 
+                WHERE id = OLD.payment_id 
+                   OR id = OLD.id 
+                   OR (OLD.category = 'Pago Crédito' AND amount = OLD.amount AND date = OLD.date);
+            END;
+        """
+
+        const val CREATE_TRG_PAYMENT_DELETE_SYNC_TRANSACTION_SQL = """
+            CREATE TRIGGER IF NOT EXISTS trg_payment_after_delete_sync_transaction
+            AFTER DELETE ON payments
+            FOR EACH ROW
+            BEGIN
+                DELETE FROM transactions 
+                WHERE payment_id = OLD.id 
+                   OR id = OLD.id 
+                   OR (category = 'Pago Crédito' AND amount = OLD.amount AND date = OLD.date);
+            END;
+        """
+
+        const val CREATE_TRG_TRANSACTION_UPDATE_SYNC_PAYMENT_SQL = """
+            CREATE TRIGGER IF NOT EXISTS trg_transaction_after_update_sync_payment
+            AFTER UPDATE OF amount ON transactions
+            FOR EACH ROW
+            WHEN OLD.payment_id IS NOT NULL OR OLD.category = 'Pago Crédito' OR OLD.id IN (SELECT id FROM payments)
+            BEGIN
+                UPDATE payments 
+                SET amount = NEW.amount 
+                WHERE id = NEW.payment_id 
+                   OR id = NEW.id 
+                   OR (NEW.category = 'Pago Crédito' AND amount = OLD.amount AND date = OLD.date);
+            END;
+        """
+
+        const val CREATE_TRG_PAYMENT_UPDATE_SYNC_TRANSACTION_SQL = """
+            CREATE TRIGGER IF NOT EXISTS trg_payment_after_update_sync_transaction
+            AFTER UPDATE OF amount ON payments
+            FOR EACH ROW
+            BEGIN
+                UPDATE transactions 
+                SET amount = NEW.amount 
+                WHERE payment_id = NEW.id 
+                   OR id = NEW.id 
+                   OR (category = 'Pago Crédito' AND amount = OLD.amount AND date = OLD.date);
+            END;
+        """
+
         // Indexes for 10-year scalable date partitioning and foreign keys
         const val CREATE_IDX_TRANSACTIONS_DATE = "CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);"
         const val CREATE_IDX_TRANSACTIONS_DATE_TYPE = "CREATE INDEX IF NOT EXISTS idx_transactions_date_type ON transactions(date DESC, type);"
+        const val CREATE_IDX_TRANSACTIONS_PAYMENT_ID = "CREATE INDEX IF NOT EXISTS idx_transactions_payment_id ON transactions(payment_id);"
         const val CREATE_IDX_PAYMENTS_CREDIT_ID = "CREATE INDEX IF NOT EXISTS idx_payments_credit_id ON payments(credit_id);"
         const val CREATE_IDX_PAYMENTS_DATE = "CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(date DESC);"
     }
@@ -120,13 +175,20 @@ class TursoDatabaseHelper(
         // Indexes
         db.execSQL(CREATE_IDX_TRANSACTIONS_DATE)
         db.execSQL(CREATE_IDX_TRANSACTIONS_DATE_TYPE)
+        db.execSQL(CREATE_IDX_TRANSACTIONS_PAYMENT_ID)
         db.execSQL(CREATE_IDX_PAYMENTS_CREDIT_ID)
         db.execSQL(CREATE_IDX_PAYMENTS_DATE)
 
-        // Triggers
+        // Triggers for Credit balance calculation
         db.execSQL(CREATE_TRG_PAYMENT_INSERT_SQL.trimIndent())
         db.execSQL(CREATE_TRG_PAYMENT_DELETE_SQL.trimIndent())
         db.execSQL(CREATE_TRG_PAYMENT_UPDATE_SQL.trimIndent())
+
+        // Reciprocal triggers for Transactions <-> Payments
+        db.execSQL(CREATE_TRG_TRANSACTION_DELETE_SYNC_PAYMENT_SQL.trimIndent())
+        db.execSQL(CREATE_TRG_PAYMENT_DELETE_SYNC_TRANSACTION_SQL.trimIndent())
+        db.execSQL(CREATE_TRG_TRANSACTION_UPDATE_SYNC_PAYMENT_SQL.trimIndent())
+        db.execSQL(CREATE_TRG_PAYMENT_UPDATE_SYNC_TRANSACTION_SQL.trimIndent())
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -143,6 +205,18 @@ class TursoDatabaseHelper(
             db.execSQL(CREATE_TRG_PAYMENT_INSERT_SQL.trimIndent())
             db.execSQL(CREATE_TRG_PAYMENT_DELETE_SQL.trimIndent())
             db.execSQL(CREATE_TRG_PAYMENT_UPDATE_SQL.trimIndent())
+        }
+        if (oldVersion < 5) {
+            try {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN payment_id TEXT;")
+            } catch (_: Exception) {
+                // Column might already exist
+            }
+            db.execSQL(CREATE_IDX_TRANSACTIONS_PAYMENT_ID)
+            db.execSQL(CREATE_TRG_TRANSACTION_DELETE_SYNC_PAYMENT_SQL.trimIndent())
+            db.execSQL(CREATE_TRG_PAYMENT_DELETE_SYNC_TRANSACTION_SQL.trimIndent())
+            db.execSQL(CREATE_TRG_TRANSACTION_UPDATE_SYNC_PAYMENT_SQL.trimIndent())
+            db.execSQL(CREATE_TRG_PAYMENT_UPDATE_SYNC_TRANSACTION_SQL.trimIndent())
         }
     }
 

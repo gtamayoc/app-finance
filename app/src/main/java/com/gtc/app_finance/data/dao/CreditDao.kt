@@ -20,23 +20,33 @@ class CreditDao(private val dbHelper: TursoDatabaseHelper) {
         return result != -1L
     }
 
+    /**
+     * Reads all credits while computing remainingAmount dynamically from existing payments.
+     * This guarantees that if a payment is deleted or orphan, the credit balance always
+     * reflects the real mathematical truth (total_amount - sum(payments)).
+     */
     fun getAll(): List<CreditEntity> {
         val list = mutableListOf<CreditEntity>()
         val db = dbHelper.readableDatabase
-        val cursor: Cursor = db.query(
-            "credits",
-            null,
-            null,
-            null,
-            null,
-            null,
-            "due_date ASC"
-        )
+        val query = """
+            SELECT 
+                c.id,
+                c.title,
+                c.total_amount,
+                MAX(0.0, c.total_amount - COALESCE(SUM(p.amount), 0.0)) AS computed_remaining,
+                c.due_date
+            FROM credits c
+            LEFT JOIN payments p ON p.credit_id = c.id
+            GROUP BY c.id, c.title, c.total_amount, c.due_date
+            ORDER BY c.due_date ASC;
+        """.trimIndent()
+
+        val cursor = db.rawQuery(query, null)
         cursor.use { c ->
             val idIdx = c.getColumnIndexOrThrow("id")
             val titleIdx = c.getColumnIndexOrThrow("title")
             val totalIdx = c.getColumnIndexOrThrow("total_amount")
-            val remainingIdx = c.getColumnIndexOrThrow("remaining_amount")
+            val remainingIdx = c.getColumnIndexOrThrow("computed_remaining")
             val dueDateIdx = c.getColumnIndexOrThrow("due_date")
 
             while (c.moveToNext()) {
@@ -52,6 +62,24 @@ class CreditDao(private val dbHelper: TursoDatabaseHelper) {
             }
         }
         return list
+    }
+
+    /**
+     * Synchronizes the stored remaining_amount column in the credits table with
+     * the actual sum of payments, healing any drift caused by manual edits or legacy states.
+     */
+    fun syncStoredRemainingAmounts() {
+        try {
+            val db = dbHelper.writableDatabase
+            db.execSQL("""
+                UPDATE credits
+                SET remaining_amount = MAX(0.0, total_amount - (
+                    SELECT COALESCE(SUM(amount), 0.0) FROM payments WHERE credit_id = credits.id
+                ));
+            """.trimIndent())
+        } catch (e: Exception) {
+            android.util.Log.w("CreditDao", "Error updating stored remaining_amount: ${e.message}")
+        }
     }
 
     fun updateRemainingAmount(creditId: String, newRemaining: Double): Boolean {

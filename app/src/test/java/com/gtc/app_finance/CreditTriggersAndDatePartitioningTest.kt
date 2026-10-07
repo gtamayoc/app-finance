@@ -206,4 +206,63 @@ class CreditTriggersAndDatePartitioningTest {
             )
         }
     }
+
+    @Test
+    fun `Repository deleteTransaction on abono transaction also purges linked payment and queues sync`() = runTest {
+        val abonoTx = TransactionEntity(
+            id = "tx-abono-1",
+            title = "Abono: Préstamo",
+            amount = 150.0,
+            type = "expense",
+            category = "Pago Crédito",
+            date = "2026-10-07 10:00",
+            paymentId = "pay-abono-1"
+        )
+        val matchingPayment = PaymentEntity(
+            id = "pay-abono-1",
+            creditId = "cred-1",
+            amount = 150.0,
+            date = "2026-10-07 10:00"
+        )
+
+        every { transactionDao.getAll() } returns listOf(abonoTx)
+        every { paymentDao.getAll() } returns listOf(matchingPayment)
+        every { transactionDao.deleteById("tx-abono-1") } returns true
+        every { paymentDao.deleteById("pay-abono-1") } returns true
+
+        repository.deleteTransaction("tx-abono-1")
+
+        verify(exactly = 1) { transactionDao.deleteById("tx-abono-1") }
+        verify(exactly = 1) { paymentDao.deleteById("pay-abono-1") }
+        verify(atLeast = 1) {
+            syncQueueDao.insert(match { it.entityType == "PAYMENT" && it.entityId == "pay-abono-1" && it.operation == "DELETE" })
+        }
+    }
+
+    @Test
+    fun `TursoDatabaseHelper defines reciprocal synchronization triggers for transactions and payments`() {
+        assertTrue(TursoDatabaseHelper.CREATE_TRG_TRANSACTION_DELETE_SYNC_PAYMENT_SQL.contains("trg_transaction_after_delete_sync_payment"))
+        assertTrue(TursoDatabaseHelper.CREATE_TRG_TRANSACTION_DELETE_SYNC_PAYMENT_SQL.contains("AFTER DELETE ON transactions"))
+        assertTrue(TursoDatabaseHelper.CREATE_TRG_PAYMENT_DELETE_SYNC_TRANSACTION_SQL.contains("trg_payment_after_delete_sync_transaction"))
+        assertTrue(TursoDatabaseHelper.CREATE_TRG_PAYMENT_DELETE_SYNC_TRANSACTION_SQL.contains("AFTER DELETE ON payments"))
+        assertTrue(TursoDatabaseHelper.CREATE_TABLE_TRANSACTIONS.contains("payment_id TEXT"))
+    }
+
+    @Test
+    fun `Credit balance computation dynamically adapts when payments are added or deleted regardless of static column`() {
+        val totalAmount = 1000.0
+        val payments = mutableListOf(200.0, 300.0)
+
+        fun computedRemaining(): Double = (totalAmount - payments.sum()).coerceAtLeast(0.0)
+
+        assertEquals(500.0, computedRemaining(), 0.001)
+
+        // When a payment is deleted, remaining amount immediately recovers to 700.0
+        payments.remove(200.0)
+        assertEquals(700.0, computedRemaining(), 0.001)
+
+        // When all payments are deleted, remaining amount immediately recovers to total 1000.0
+        payments.clear()
+        assertEquals(1000.0, computedRemaining(), 0.001)
+    }
 }

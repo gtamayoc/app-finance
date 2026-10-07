@@ -9,7 +9,8 @@ data class TransactionEntity(
     val amount: Double,
     val type: String, // 'income' | 'expense'
     val category: String,
-    val date: String
+    val date: String,
+    val paymentId: String? = null
 ) {
     fun toDomain(): Transaction {
         return Transaction(
@@ -18,7 +19,8 @@ data class TransactionEntity(
             amount = amount,
             type = if (type.lowercase() == "income") TransactionType.INCOME else TransactionType.EXPENSE,
             category = category,
-            date = date
+            date = date,
+            paymentId = paymentId
         )
     }
 
@@ -30,7 +32,8 @@ data class TransactionEntity(
                 amount = transaction.amount,
                 type = if (transaction.type == TransactionType.INCOME) "income" else "expense",
                 category = transaction.category,
-                date = transaction.date
+                date = transaction.date,
+                paymentId = transaction.paymentId
             )
         }
     }

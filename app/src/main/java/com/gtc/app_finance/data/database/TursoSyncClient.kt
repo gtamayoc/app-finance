@@ -181,7 +181,8 @@ class TursoSyncClient(
                 amount REAL NOT NULL,
                 type TEXT NOT NULL,
                 category TEXT NOT NULL,
-                date TEXT NOT NULL
+                date TEXT NOT NULL,
+                payment_id TEXT
             );
         """.trimIndent()
 
@@ -249,13 +250,42 @@ class TursoSyncClient(
             END;
         """.trimIndent()
 
+        val createTrgTxDeleteSyncPaymentSql = """
+            CREATE TRIGGER IF NOT EXISTS trg_transaction_after_delete_sync_payment
+            AFTER DELETE ON transactions
+            FOR EACH ROW
+            WHEN OLD.payment_id IS NOT NULL OR OLD.category = 'Pago Crédito' OR OLD.id IN (SELECT id FROM payments)
+            BEGIN
+                DELETE FROM payments 
+                WHERE id = OLD.payment_id 
+                   OR id = OLD.id 
+                   OR (OLD.category = 'Pago Crédito' AND amount = OLD.amount AND date = OLD.date);
+            END;
+        """.trimIndent()
+
+        val createTrgPayDeleteSyncTxSql = """
+            CREATE TRIGGER IF NOT EXISTS trg_payment_after_delete_sync_transaction
+            AFTER DELETE ON payments
+            FOR EACH ROW
+            BEGIN
+                DELETE FROM transactions 
+                WHERE payment_id = OLD.id 
+                   OR id = OLD.id 
+                   OR (category = 'Pago Crédito' AND amount = OLD.amount AND date = OLD.date);
+            END;
+        """.trimIndent()
+
         val ok1 = executeQuery(createTransactionsSql)
         val ok2 = executeQuery(createCreditsSql)
         val ok3 = executeQuery(createPaymentsSql)
 
+        // Ensure payment_id column exists on remote table if already created earlier
+        executeQuery("ALTER TABLE transactions ADD COLUMN payment_id TEXT;")
+
         // Indexes
         executeQuery("CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);")
         executeQuery("CREATE INDEX IF NOT EXISTS idx_transactions_date_type ON transactions(date DESC, type);")
+        executeQuery("CREATE INDEX IF NOT EXISTS idx_transactions_payment_id ON transactions(payment_id);")
         executeQuery("CREATE INDEX IF NOT EXISTS idx_payments_credit_id ON payments(credit_id);")
         executeQuery("CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(date DESC);")
 
@@ -263,6 +293,8 @@ class TursoSyncClient(
         executeQuery(createTrgInsertSql)
         executeQuery(createTrgDeleteSql)
         executeQuery(createTrgUpdateSql)
+        executeQuery(createTrgTxDeleteSyncPaymentSql)
+        executeQuery(createTrgPayDeleteSyncTxSql)
 
         return@withContext ok1 && ok2 && ok3
     }

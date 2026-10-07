@@ -17,9 +17,36 @@ class TransactionDao(private val dbHelper: TursoDatabaseHelper) {
             put("type", transaction.type)
             put("category", transaction.category)
             put("date", transaction.date)
+            if (transaction.paymentId != null) {
+                put("payment_id", transaction.paymentId)
+            } else {
+                putNull("payment_id")
+            }
         }
         val result = db.insertWithOnConflict("transactions", null, values, android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE)
         return result != -1L
+    }
+
+    private fun mapCursorToEntity(c: Cursor): TransactionEntity {
+        val idIdx = c.getColumnIndexOrThrow("id")
+        val titleIdx = c.getColumnIndexOrThrow("title")
+        val amountIdx = c.getColumnIndexOrThrow("amount")
+        val typeIdx = c.getColumnIndexOrThrow("type")
+        val categoryIdx = c.getColumnIndexOrThrow("category")
+        val dateIdx = c.getColumnIndexOrThrow("date")
+        val paymentIdIdx = c.getColumnIndex("payment_id")
+
+        val paymentId = if (paymentIdIdx != -1 && !c.isNull(paymentIdIdx)) c.getString(paymentIdIdx) else null
+
+        return TransactionEntity(
+            id = c.getString(idIdx),
+            title = c.getString(titleIdx),
+            amount = c.getDouble(amountIdx),
+            type = c.getString(typeIdx),
+            category = c.getString(categoryIdx),
+            date = c.getString(dateIdx),
+            paymentId = paymentId
+        )
     }
 
     fun getAll(): List<TransactionEntity> {
@@ -35,24 +62,8 @@ class TransactionDao(private val dbHelper: TursoDatabaseHelper) {
             "date DESC"
         )
         cursor.use { c ->
-            val idIdx = c.getColumnIndexOrThrow("id")
-            val titleIdx = c.getColumnIndexOrThrow("title")
-            val amountIdx = c.getColumnIndexOrThrow("amount")
-            val typeIdx = c.getColumnIndexOrThrow("type")
-            val categoryIdx = c.getColumnIndexOrThrow("category")
-            val dateIdx = c.getColumnIndexOrThrow("date")
-
             while (c.moveToNext()) {
-                list.add(
-                    TransactionEntity(
-                        id = c.getString(idIdx),
-                        title = c.getString(titleIdx),
-                        amount = c.getDouble(amountIdx),
-                        type = c.getString(typeIdx),
-                        category = c.getString(categoryIdx),
-                        date = c.getString(dateIdx)
-                    )
-                )
+                list.add(mapCursorToEntity(c))
             }
         }
         return list
@@ -71,24 +82,8 @@ class TransactionDao(private val dbHelper: TursoDatabaseHelper) {
             "date DESC"
         )
         cursor.use { c ->
-            val idIdx = c.getColumnIndexOrThrow("id")
-            val titleIdx = c.getColumnIndexOrThrow("title")
-            val amountIdx = c.getColumnIndexOrThrow("amount")
-            val typeIdx = c.getColumnIndexOrThrow("type")
-            val categoryIdx = c.getColumnIndexOrThrow("category")
-            val dateIdx = c.getColumnIndexOrThrow("date")
-
             while (c.moveToNext()) {
-                list.add(
-                    TransactionEntity(
-                        id = c.getString(idIdx),
-                        title = c.getString(titleIdx),
-                        amount = c.getDouble(amountIdx),
-                        type = c.getString(typeIdx),
-                        category = c.getString(categoryIdx),
-                        date = c.getString(dateIdx)
-                    )
-                )
+                list.add(mapCursorToEntity(c))
             }
         }
         return list
@@ -107,24 +102,8 @@ class TransactionDao(private val dbHelper: TursoDatabaseHelper) {
             "date DESC"
         )
         cursor.use { c ->
-            val idIdx = c.getColumnIndexOrThrow("id")
-            val titleIdx = c.getColumnIndexOrThrow("title")
-            val amountIdx = c.getColumnIndexOrThrow("amount")
-            val typeIdx = c.getColumnIndexOrThrow("type")
-            val categoryIdx = c.getColumnIndexOrThrow("category")
-            val dateIdx = c.getColumnIndexOrThrow("date")
-
             while (c.moveToNext()) {
-                list.add(
-                    TransactionEntity(
-                        id = c.getString(idIdx),
-                        title = c.getString(titleIdx),
-                        amount = c.getDouble(amountIdx),
-                        type = c.getString(typeIdx),
-                        category = c.getString(categoryIdx),
-                        date = c.getString(dateIdx)
-                    )
-                )
+                list.add(mapCursorToEntity(c))
             }
         }
         return list

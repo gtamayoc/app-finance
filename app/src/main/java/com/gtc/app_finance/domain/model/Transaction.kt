@@ -13,6 +13,7 @@ data class Transaction(
     val amount: Double,
     val type: TransactionType,
     val category: String,
-    val date: String
+    val date: String,
+    val paymentId: String? = null
 )
 

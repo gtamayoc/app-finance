@@ -68,6 +68,25 @@ class DocumentMappersTest {
     }
 
     @Test
+    fun `TransactionDocumentMapper correctly preserves paymentId in round trip`() {
+        val entity = TransactionEntity(
+            id = "tx-abono-1",
+            title = "Abono Préstamo",
+            amount = 300.0,
+            type = "expense",
+            category = "Pago Crédito",
+            date = "2026-10-07 10:00",
+            paymentId = "pay-linked-1"
+        )
+        val doc = TransactionDocumentMapper.toDocument(entity)
+        assertEquals("pay-linked-1", doc.data["paymentId"])
+
+        val backEntity = TransactionDocumentMapper.toEntity(doc)
+        assertNotNull(backEntity)
+        assertEquals("pay-linked-1", backEntity?.paymentId)
+    }
+
+    @Test
     fun `TransactionDocumentMapper toEntity returns null when mandatory fields are missing`() {
         val missingTitleDoc = DatabaseDocument(
             id = "tx-bad-1",

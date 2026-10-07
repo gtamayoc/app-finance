@@ -85,6 +85,7 @@ class FinanceRepository(
     suspend fun refreshData(): Unit = withContext(Dispatchers.IO) {
         try {
             purgeLegacySampleData()
+            reconcileOrphanPayments()
             refreshLocalDataInternal()
             cloudSyncEngine?.startLiveSync()
             cloudSyncEngine?.pushPendingMutations()
@@ -99,6 +100,7 @@ class FinanceRepository(
     }
 
     private suspend fun refreshLocalDataInternal(): Unit = withContext(Dispatchers.IO) {
+        creditDao.syncStoredRemainingAmounts()
         val txEntities = transactionDao.getAll()
         val crEntities = creditDao.getAll()
 
@@ -409,8 +411,30 @@ class FinanceRepository(
     }
 
     suspend fun deleteTransaction(id: String) = withContext(Dispatchers.IO) {
+        val existingTx = transactionDao.getAll().find { it.id == id }
+        val targetPaymentId = existingTx?.paymentId ?: id
+
         transactionDao.deleteById(id)
         cloudSyncEngine?.queueTransactionDelete(id)
+
+        // If this transaction corresponds to a payment, ensure the payment is also deleted and queued for sync
+        val linkedPayment = paymentDao.getAll().find { 
+            it.id == targetPaymentId || (existingTx != null && existingTx.category == "Pago Crédito" && it.amount == existingTx.amount && it.date == existingTx.date) 
+        }
+        if (linkedPayment != null) {
+            paymentDao.deleteById(linkedPayment.id)
+            cloudSyncEngine?.queuePaymentDelete(linkedPayment.id)
+            val paySql = "DELETE FROM payments WHERE id = '${linkedPayment.id}';"
+            syncQueueDao.insert(
+                SyncQueueEntity(
+                    entityType = "PAYMENT",
+                    entityId = linkedPayment.id,
+                    operation = "DELETE",
+                    sqlCommand = paySql
+                )
+            )
+        }
+
         cloudSyncEngine?.pushPendingMutations()
 
         val sql = "DELETE FROM transactions WHERE id = '$id';"
@@ -469,8 +493,9 @@ class FinanceRepository(
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
         val date = dateString ?: dateFormat.format(Date())
 
+        val paymentId = UUID.randomUUID().toString()
         val payment = Payment(
-            id = UUID.randomUUID().toString(),
+            id = paymentId,
             creditId = creditId,
             amount = amount,
             date = date
@@ -483,25 +508,34 @@ class FinanceRepository(
         creditDao.updateRemainingAmount(creditId, newRemaining)
 
         val expenseTx = Transaction(
-            id = UUID.randomUUID().toString(),
+            id = paymentId,
             title = "Abono: ${credit.title}",
             amount = amount,
             type = TransactionType.EXPENSE,
             category = "Pago Crédito",
-            date = date
+            date = date,
+            paymentId = paymentId
         )
-        val expenseTxEntity = TransactionEntity.fromDomain(expenseTx)
+        val expenseTxEntity = TransactionEntity(
+            id = paymentId,
+            title = "Abono: ${credit.title}",
+            amount = amount,
+            type = "expense",
+            category = "Pago Crédito",
+            date = date,
+            paymentId = paymentId
+        )
         transactionDao.insert(expenseTxEntity)
         cloudSyncEngine?.queueTransactionUpsert(expenseTxEntity)
         cloudSyncEngine?.pushPendingMutations()
 
-        val paySql = "INSERT OR REPLACE INTO payments (id, credit_id, amount, date) VALUES ('${payment.id}', '$creditId', $amount, '$date');"
+        val paySql = "INSERT OR REPLACE INTO payments (id, credit_id, amount, date) VALUES ('$paymentId', '$creditId', $amount, '$date');"
         val updateCreditSql = "UPDATE credits SET remaining_amount = $newRemaining WHERE id = '$creditId';"
-        val txSql = "INSERT OR REPLACE INTO transactions (id, title, amount, type, category, date) VALUES ('${expenseTx.id}', '${expenseTx.title.replace("'", "''")}', $amount, 'expense', 'Pago Crédito', '$date');"
+        val txSql = "INSERT OR REPLACE INTO transactions (id, title, amount, type, category, date, payment_id) VALUES ('$paymentId', '${expenseTx.title.replace("'", "''")}', $amount, 'expense', 'Pago Crédito', '$date', '$paymentId');"
 
-        syncQueueDao.insert(SyncQueueEntity(entityType = "PAYMENT", entityId = payment.id, operation = "INSERT", sqlCommand = paySql))
+        syncQueueDao.insert(SyncQueueEntity(entityType = "PAYMENT", entityId = paymentId, operation = "INSERT", sqlCommand = paySql))
         syncQueueDao.insert(SyncQueueEntity(entityType = "CREDIT", entityId = creditId, operation = "UPDATE", sqlCommand = updateCreditSql))
-        syncQueueDao.insert(SyncQueueEntity(entityType = "TRANSACTION", entityId = expenseTx.id, operation = "INSERT", sqlCommand = txSql))
+        syncQueueDao.insert(SyncQueueEntity(entityType = "TRANSACTION", entityId = paymentId, operation = "INSERT", sqlCommand = txSql))
 
         refreshLocalData()
         syncData()
@@ -569,8 +603,8 @@ class FinanceRepository(
         transactionDao.getMonthlyAggregates()
     }
 
-    private fun purgeLegacySampleData() {
-        if (hasPurgedLegacySampleData) return
+    private suspend fun purgeLegacySampleData() = withContext(Dispatchers.IO) {
+        if (hasPurgedLegacySampleData) return@withContext
         hasPurgedLegacySampleData = true
 
         try {
@@ -601,8 +635,45 @@ class FinanceRepository(
                     paymentDao.deleteById(py.id)
                 }
             }
+
+            reconcileOrphanPayments()
         } catch (e: Exception) {
             Log.w("FinanceRepository", "purgeLegacySampleData encountered non-fatal error: ${e.message}")
+        }
+    }
+
+    private suspend fun reconcileOrphanPayments() = withContext(Dispatchers.IO) {
+        try {
+            val allPayments = paymentDao.getAll()
+            if (allPayments.isEmpty()) return@withContext
+
+            val allTxs = transactionDao.getAll()
+            val creditTxs = allTxs.filter { it.category == "Pago Crédito" }
+
+            for (payment in allPayments) {
+                val hasMatchingTx = creditTxs.any { tx ->
+                    tx.paymentId == payment.id ||
+                    tx.id == payment.id ||
+                    (tx.amount == payment.amount && tx.date == payment.date)
+                }
+
+                if (!hasMatchingTx) {
+                    Log.i("FinanceRepository", "Limpiando abono huérfano sin transacción en historial: ${payment.id}")
+                    paymentDao.deleteById(payment.id)
+                    cloudSyncEngine?.queuePaymentDelete(payment.id)
+                    val delSql = "DELETE FROM payments WHERE id = '${payment.id}';"
+                    syncQueueDao.insert(
+                        SyncQueueEntity(
+                            entityType = "PAYMENT",
+                            entityId = payment.id,
+                            operation = "DELETE",
+                            sqlCommand = delSql
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("FinanceRepository", "Error no fatal en reconcileOrphanPayments: ${e.message}")
         }
     }
 }
