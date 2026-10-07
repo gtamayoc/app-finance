@@ -37,6 +37,12 @@
       "skillPath": "skills/01-by-domain/mobile-touch/SKILL.md",
       "computedHash": "cd852f253ae7120d318fef2b495d93f00e682ecc6584f980cb96a9371211d2d3"
     },
+    "ralph-tui-prd": {
+      "source": "subsy/ralph-tui",
+      "sourceType": "github",
+      "skillPath": "skills/ralph-tui-prd/SKILL.md",
+      "computedHash": "29b4fe8d3cce2abce4eee7f6a3101095430d4d3a825c82663db479ee2a7a46d7"
+    },
     "testing-android-code": {
       "source": "bitwarden/android",
       "sourceType": "github",
