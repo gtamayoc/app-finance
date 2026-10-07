@@ -6,6 +6,10 @@ import com.gtc.app_finance.cloud.domain.model.DatabaseDocument
 import com.gtc.app_finance.cloud.domain.ports.IDatabaseService
 import com.gtc.app_finance.cloud.domain.security.ICloudCredentialsProvider
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 
@@ -16,6 +20,7 @@ class GoogleCloudDatabaseAdapter(
 ) : IDatabaseService {
 
     private val collections = ConcurrentHashMap<String, ConcurrentHashMap<String, DatabaseDocument>>()
+    private val mutationNotifier = MutableSharedFlow<Unit>(extraBufferCapacity = 64)
 
     override suspend fun getDocument(collection: String, id: String): CloudResult<DatabaseDocument> = withContext(Dispatchers.IO) {
         try {
@@ -69,6 +74,7 @@ class GoogleCloudDatabaseAdapter(
                 data = data,
                 updatedAtEpochMs = System.currentTimeMillis()
             )
+            mutationNotifier.tryEmit(Unit)
             CloudResult.Success(Unit)
         } catch (e: Exception) {
             CloudResult.Failure(errorMapper.map(e))
@@ -86,6 +92,7 @@ class GoogleCloudDatabaseAdapter(
 
             val col = collections[collection]
             if (col != null && col.remove(id) != null) {
+                mutationNotifier.tryEmit(Unit)
                 CloudResult.Success(Unit)
             } else {
                 CloudResult.Failure(
@@ -125,4 +132,21 @@ class GoogleCloudDatabaseAdapter(
             CloudResult.Failure(errorMapper.map(e))
         }
     }
+
+    override fun streamDocument(collection: String, id: String): Flow<CloudResult<DatabaseDocument>> = flow {
+        emit(getDocument(collection, id))
+        mutationNotifier.collect {
+            emit(getDocument(collection, id))
+        }
+    }.distinctUntilChanged()
+
+    override fun streamDocuments(
+        collection: String,
+        filters: Map<String, Any?>
+    ): Flow<CloudResult<List<DatabaseDocument>>> = flow {
+        emit(queryDocuments(collection, filters))
+        mutationNotifier.collect {
+            emit(queryDocuments(collection, filters))
+        }
+    }.distinctUntilChanged()
 }

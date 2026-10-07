@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 
 class GoogleCloudAuthAdapter(
     private val credentialsProvider: ICloudCredentialsProvider,
+    private val tokenProvider: ServiceAccountTokenProvider? = null,
     private val errorMapper: GcpErrorMapper = GcpErrorMapper()
 ) : IAuthService {
 
@@ -49,6 +50,7 @@ class GoogleCloudAuthAdapter(
 
     override suspend fun signOut(): CloudResult<Unit> = withContext(Dispatchers.IO) {
         activeUser = null
+        tokenProvider?.invalidateToken()
         CloudResult.Success(Unit)
     }
 
@@ -59,7 +61,11 @@ class GoogleCloudAuthAdapter(
                     CloudError.AuthenticationError.SessionExpired("No active GCP session to refresh")
                 )
             }
-            CloudResult.Success("gcp_bearer_token_${System.currentTimeMillis()}")
+            if (tokenProvider != null) {
+                tokenProvider.getAccessToken()
+            } else {
+                CloudResult.Success("gcp_bearer_token_${System.currentTimeMillis()}")
+            }
         } catch (e: Exception) {
             CloudResult.Failure(errorMapper.map(e))
         }

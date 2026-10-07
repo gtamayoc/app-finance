@@ -3,12 +3,18 @@ package com.gtc.app_finance.cloud.infrastructure.factory
 import com.gtc.app_finance.cloud.domain.ports.IAuthService
 import com.gtc.app_finance.cloud.domain.ports.IDatabaseService
 import com.gtc.app_finance.cloud.domain.ports.IFunctionsService
+import com.gtc.app_finance.cloud.domain.ports.IJsonSerializer
 import com.gtc.app_finance.cloud.domain.ports.IStorageService
 import com.gtc.app_finance.cloud.domain.security.ICloudCredentialsProvider
+import com.gtc.app_finance.cloud.infrastructure.firebase.FirebaseAuthAdapter
+import com.gtc.app_finance.cloud.infrastructure.firebase.FirebaseDatabaseAdapter
+import com.gtc.app_finance.cloud.infrastructure.firebase.FirebaseFunctionsAdapter
+import com.gtc.app_finance.cloud.infrastructure.firebase.FirebaseStorageAdapter
 import com.gtc.app_finance.cloud.infrastructure.gcp.GoogleCloudAuthAdapter
 import com.gtc.app_finance.cloud.infrastructure.gcp.GoogleCloudDatabaseAdapter
 import com.gtc.app_finance.cloud.infrastructure.gcp.GoogleCloudFunctionsAdapter
 import com.gtc.app_finance.cloud.infrastructure.gcp.GoogleCloudStorageAdapter
+import com.gtc.app_finance.cloud.infrastructure.gcp.ServiceAccountTokenProvider
 import com.gtc.app_finance.cloud.infrastructure.memory.InMemoryAuthAdapter
 import com.gtc.app_finance.cloud.infrastructure.memory.InMemoryDatabaseAdapter
 import com.gtc.app_finance.cloud.infrastructure.memory.InMemoryFunctionsAdapter
@@ -24,7 +30,8 @@ data class CloudServiceBundle(
 
 class CloudServiceFactory(
     private val configProvider: ICloudConfigProvider,
-    private val credentialsProvider: ICloudCredentialsProvider
+    private val credentialsProvider: ICloudCredentialsProvider,
+    private val jsonSerializer: IJsonSerializer? = null
 ) {
     private val customRegistrations = ConcurrentHashMap<CloudProvider, () -> CloudServiceBundle>()
 
@@ -38,11 +45,25 @@ class CloudServiceFactory(
     }
 
     private val gcpBundle by lazy {
+        val tokenProvider = if (jsonSerializer != null) {
+            ServiceAccountTokenProvider(credentialsProvider, jsonSerializer)
+        } else {
+            null
+        }
         CloudServiceBundle(
-            authService = GoogleCloudAuthAdapter(credentialsProvider),
+            authService = GoogleCloudAuthAdapter(credentialsProvider, tokenProvider),
             storageService = GoogleCloudStorageAdapter(credentialsProvider),
             databaseService = GoogleCloudDatabaseAdapter(credentialsProvider),
             functionsService = GoogleCloudFunctionsAdapter(credentialsProvider)
+        )
+    }
+
+    private val firebaseBundle by lazy {
+        CloudServiceBundle(
+            authService = FirebaseAuthAdapter(),
+            storageService = FirebaseStorageAdapter(),
+            databaseService = FirebaseDatabaseAdapter(),
+            functionsService = FirebaseFunctionsAdapter()
         )
     }
 
@@ -60,15 +81,15 @@ class CloudServiceFactory(
 
         return when (targetProvider) {
             CloudProvider.GCP -> gcpBundle
+            CloudProvider.FIREBASE -> firebaseBundle
             CloudProvider.IN_MEMORY -> inMemoryBundle
-            CloudProvider.FIREBASE,
             CloudProvider.AWS,
             CloudProvider.SUPABASE -> {
                 if (configProvider.isFallbackAllowed()) {
                     inMemoryBundle
                 } else {
                     throw UnsupportedOperationException(
-                        "Provider $targetProvider adapter not implemented in Phase 1 and fallback is disabled."
+                        "Provider $targetProvider adapter not implemented in Phase 2 and fallback is disabled."
                     )
                 }
             }

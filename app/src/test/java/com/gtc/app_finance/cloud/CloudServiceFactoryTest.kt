@@ -5,6 +5,10 @@ import com.gtc.app_finance.cloud.infrastructure.factory.CloudProvider
 import com.gtc.app_finance.cloud.infrastructure.factory.CloudServiceBundle
 import com.gtc.app_finance.cloud.infrastructure.factory.CloudServiceFactory
 import com.gtc.app_finance.cloud.infrastructure.factory.ICloudConfigProvider
+import com.gtc.app_finance.cloud.infrastructure.firebase.FirebaseAuthAdapter
+import com.gtc.app_finance.cloud.infrastructure.firebase.FirebaseDatabaseAdapter
+import com.gtc.app_finance.cloud.infrastructure.firebase.FirebaseFunctionsAdapter
+import com.gtc.app_finance.cloud.infrastructure.firebase.FirebaseStorageAdapter
 import com.gtc.app_finance.cloud.infrastructure.gcp.GoogleCloudStorageAdapter
 import com.gtc.app_finance.cloud.infrastructure.gcp.LocalFileCredentialsProvider
 import com.gtc.app_finance.cloud.infrastructure.memory.InMemoryAuthAdapter
@@ -53,6 +57,22 @@ class CloudServiceFactoryTest {
     }
 
     @Test
+    fun `factory provides firebase adapters when configured with FIREBASE`() {
+        val config = TestConfigProvider(active = CloudProvider.FIREBASE)
+        val factory = CloudServiceFactory(config, credentialsProvider)
+
+        val storage = factory.getStorageService()
+        val auth = factory.getAuthService()
+        val database = factory.getDatabaseService()
+        val functions = factory.getFunctionsService()
+
+        assertTrue(storage is FirebaseStorageAdapter)
+        assertTrue(auth is FirebaseAuthAdapter)
+        assertTrue(database is FirebaseDatabaseAdapter)
+        assertTrue(functions is FirebaseFunctionsAdapter)
+    }
+
+    @Test
     fun `factory falls back to in-memory for unmapped providers if fallback allowed`() {
         val config = TestConfigProvider(active = CloudProvider.AWS, allowFallback = true)
         val factory = CloudServiceFactory(config, credentialsProvider)
@@ -93,6 +113,10 @@ class CloudServiceFactoryTest {
         // Switch to GCP at runtime
         config.active = CloudProvider.GCP
         assertTrue(factory.getStorageService() is GoogleCloudStorageAdapter)
+
+        // Switch to Firebase at runtime
+        config.active = CloudProvider.FIREBASE
+        assertTrue(factory.getStorageService() is FirebaseStorageAdapter)
 
         // Switch back to IN_MEMORY
         config.active = CloudProvider.IN_MEMORY

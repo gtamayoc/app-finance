@@ -24,7 +24,8 @@ val cloudModule = module {
     single {
         CloudServiceFactory(
             configProvider = get(),
-            credentialsProvider = get()
+            credentialsProvider = get(),
+            jsonSerializer = get()
         )
     }
 
